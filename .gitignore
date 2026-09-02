@@ -6,5 +6,4 @@ dist-electron/
 .DS_Store
 electron-app/.env
 scratch/
-*.vbs
 *.lnk

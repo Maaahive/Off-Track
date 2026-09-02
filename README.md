@@ -100,11 +100,22 @@ npm install
 ```
 
 ### 3. Launch the App
+
+#### 🚀 Option A: Run via Terminal
 ```bash
 npm start
 ```
 
-> **Tip for Windows Users**: You can also double-click `Launch OffTrack.vbs` to run the app silently without keeping a command prompt open!
+#### 🖥️ Option B: Run Silently Without Any Terminal (Windows)
+Nobody wants to keep an annoying black command prompt window open while listening to music. You don't have to!
+
+1. **Get the Desktop Icon (1-Click Setup)**:
+   - Double-click **`create-desktop-shortcut.bat`** in the project folder.
+   - It will automatically place an official **OffTrack** app shortcut directly onto your Windows Desktop with the custom icon.
+2. **Launch & Enjoy**:
+   - Double-click your new **OffTrack** desktop icon anytime.
+   - The app launches silently in the background — **zero terminal or command prompt windows needed!**
+3. *(Alternative)* You can also double-click **`Launch OffTrack.vbs`** anytime to launch silently without the command prompt.
 
 ---
 
