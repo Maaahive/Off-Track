@@ -36,9 +36,10 @@ function getAudio() {
 // Commands from main.js to the audio element
 ipcRenderer.on('native-audio-cmd-play', (_, { streamUrl }) => {
   const audio = getAudio()
-  audio.pause()
-  audio.src = streamUrl
-  audio.load()
+  if (audio.src !== streamUrl) {
+    audio.pause()
+    audio.src = streamUrl
+  }
   const p = audio.play()
   if (p && p.catch) {
     p.catch(err => {
@@ -69,10 +70,13 @@ ipcRenderer.on('native-audio-cmd-pause', () => {
 ipcRenderer.on('native-audio-cmd-resume', (_, targetTime) => {
   const audio = getAudio()
   if (typeof targetTime === 'number' && !isNaN(targetTime) && targetTime >= 0) {
-    try {
-      audio.currentTime = targetTime
-    } catch (e) {
-      console.warn('[NativeAudio] Seek on resume failed:', e.message)
+    // Only seek if distance is > 1.5s so we don't flush pre-buffered audio
+    if (Math.abs(audio.currentTime - targetTime) > 1.5) {
+      try {
+        audio.currentTime = targetTime
+      } catch (e) {
+        console.warn('[NativeAudio] Seek on resume failed:', e.message)
+      }
     }
   }
   const p = audio.play()

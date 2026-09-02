@@ -12,12 +12,10 @@ const __dirname = path.dirname(__filename)
 
 app.setName('OffTrack')
 
-// Suppress Chromium GPU and disk cache locking errors on Windows
+// Optimize Chromium audio streaming & smooth playback
 app.commandLine.appendSwitch('disable-gpu-shader-disk-cache')
 app.commandLine.appendSwitch('disable-gpu-process-crash-limit')
-app.commandLine.appendSwitch('disable-http-cache')
-app.commandLine.appendSwitch('disk-cache-size', '1')
-app.commandLine.appendSwitch('media-cache-size', '1')
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
 
 // Ensure Windows Python / yt-dlp paths are included in process.env.PATH
 function fixWindowsPath() {

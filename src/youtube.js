@@ -47,7 +47,7 @@ export async function getStreamData(query) {
       '--get-duration',
       '--get-thumbnail',
       '--extractor-args', 'youtube:player_client=android',
-      '-f', '140/251/ba/b',
+      '-f', 'ba[ext=m4a]/140/251/ba/b',
       '--no-playlist',
       '--no-warnings',
       '--no-update',
