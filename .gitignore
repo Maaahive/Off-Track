@@ -1,0 +1,10 @@
+node_modules/
+dist/
+dist-electron/
+.env
+*.log
+.DS_Store
+electron-app/.env
+scratch/
+*.vbs
+*.lnk

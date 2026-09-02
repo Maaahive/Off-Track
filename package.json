@@ -1,0 +1,25 @@
+{
+  "name": "offtrack",
+  "version": "1.0.0",
+  "description": "OffTrack — A lightweight floating frosted-glass desktop music player streaming YouTube audio with Spotify integration",
+  "main": "main.js",
+  "type": "module",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron ."
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "conf": "^12.0.0",
+    "dotenv": "^16.4.7",
+    "node-fetch": "^3.3.2",
+    "open": "^10.1.0",
+    "spotify-uri": "^4.1.0",
+    "spotify-url-info": "^3.3.0",
+    "spotify-web-api-node": "^5.0.2",
+    "yt-dlp-wrap": "^2.3.12"
+  },
+  "devDependencies": {
+    "electron": "^33.4.11"
+  }
+}

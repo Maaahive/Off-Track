@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OffTrack - Settings</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@jaames/iro@5"></script>
+  <style>
+    html {
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    body {
+      background: transparent;
+      overflow: hidden;
+    }
+    .settings-window {
+      position: absolute;
+      inset: 0;
+      background: rgba(var(--bg-color-rgb), 0.97);
+      backdrop-filter: blur(32px);
+      -webkit-backdrop-filter: blur(32px);
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      /* Animate in */
+      animation: windowIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+    @keyframes windowIn {
+      from { opacity: 0; transform: scale(0.94) translateY(8px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .settings-titlebar {
+      -webkit-app-region: drag;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-color);
+      flex-shrink: 0;
+    }
+    .settings-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-main);
+      -webkit-app-region: no-drag;
+    }
+    .btn-close-win {
+      -webkit-app-region: no-drag;
+      background: rgba(255,255,255,0.08);
+      border: none;
+      color: var(--text-muted);
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, color 0.15s;
+      position: relative;
+      z-index: 10;
+    }
+    .btn-close-win:hover {
+      background: #ff5f56;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div class="settings-window">
+    <!-- Titlebar -->
+    <div class="settings-titlebar">
+      <div class="settings-title">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>
+        Settings
+      </div>
+      <button class="btn-close-win" id="btn-close-settings-win">✕</button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="settings-tabs">
+      <div class="tab active" data-target="tab-appearance">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/></svg>
+        Appearance
+      </div>
+      <div class="tab" data-target="tab-account">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Account
+      </div>
+      <div class="tab" data-target="tab-shortcuts">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2" ry="2"/><line x1="6" y1="8" x2="6.01" y2="8"/><line x1="10" y1="8" x2="10.01" y2="8"/><line x1="14" y1="8" x2="14.01" y2="8"/><line x1="18" y1="8" x2="18.01" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        Shortcuts
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="settings-content">
+
+      <!-- Appearance Tab -->
+      <div id="tab-appearance" class="tab-pane" style="display: block;">
+        <p class="settings-desc">Choose your player background wallpaper or pure glass.</p>
+        
+        <div class="background-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; margin-bottom: 24px; max-height: 280px; overflow-y: auto; padding-right: 4px;">
+          <!-- Pure Glass Card -->
+          <div class="bg-card" data-bg="" style="cursor: pointer; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; background: rgba(255,255,255,0.04); transition: all 0.2s;">
+            <div style="height: 70px; display: flex; align-items: center; justify-content: center; font-size: 28px; background: rgba(0,0,0,0.3);">🪟</div>
+            <div style="padding: 6px 8px; font-size: 11px; font-weight: 500; display: flex; justify-content: space-between; align-items: center;">
+              <span>Pure Glass</span>
+              <span style="font-size: 8px; color: var(--accent); font-weight: bold;">GLASS</span>
+            </div>
+          </div>
+
+          <div class="bg-card" data-bg="backgrounds/Evolving Universe.jpg" style="cursor: pointer; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; background: rgba(255,255,255,0.04); transition: all 0.2s;">
+            <div style="height: 70px; background: url('backgrounds/Evolving Universe.jpg') center/cover no-repeat;"></div>
+            <div style="padding: 6px 8px; font-size: 11px; font-weight: 500;">Evolving Universe</div>
+          </div>
+
+          <div class="bg-card" data-bg="backgrounds/Fall.jpg" style="cursor: pointer; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; background: rgba(255,255,255,0.04); transition: all 0.2s;">
+            <div style="height: 70px; background: url('backgrounds/Fall.jpg') center/cover no-repeat;"></div>
+            <div style="padding: 6px 8px; font-size: 11px; font-weight: 500;">Fall Vibe</div>
+          </div>
+
+          <div class="bg-card" data-bg="backgrounds/Discovery World.jpg" style="cursor: pointer; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; background: rgba(255,255,255,0.04); transition: all 0.2s;">
+            <div style="height: 70px; background: url('backgrounds/Discovery World.jpg') center/cover no-repeat;"></div>
+            <div style="padding: 6px 8px; font-size: 11px; font-weight: 500;">Discovery World</div>
+          </div>
+
+          <div class="bg-card" data-bg="backgrounds/L.jpg" style="cursor: pointer; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; background: rgba(255,255,255,0.04); transition: all 0.2s;">
+            <div style="height: 70px; background: url('backgrounds/L.jpg') center/cover no-repeat;"></div>
+            <div style="padding: 6px 8px; font-size: 11px; font-weight: 500;">L Minimalist</div>
+          </div>
+
+          <div class="bg-card" data-bg="backgrounds/wallpaper.jpg" style="cursor: pointer; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; background: rgba(255,255,255,0.04); transition: all 0.2s;">
+            <div style="height: 70px; background: url('backgrounds/wallpaper.jpg') center/cover no-repeat;"></div>
+            <div style="padding: 6px 8px; font-size: 11px; font-weight: 500;">Aesthetic Chill</div>
+          </div>
+
+          <div class="bg-card" data-bg="backgrounds/Anime Scenery.jpg" style="cursor: pointer; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; background: rgba(255,255,255,0.04); transition: all 0.2s;">
+            <div style="height: 70px; background: url('backgrounds/Anime Scenery.jpg') center/cover no-repeat;"></div>
+            <div style="padding: 6px 8px; font-size: 11px; font-weight: 500;">Anime Scenery</div>
+          </div>
+
+          <div class="bg-card" data-bg="backgrounds/100+ Marble Texture Aesthetic Backgrounds and Illustrations (Vol_ 2).jpg" style="cursor: pointer; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; background: rgba(255,255,255,0.04); transition: all 0.2s;">
+            <div style="height: 70px; background: url('backgrounds/100+ Marble Texture Aesthetic Backgrounds and Illustrations (Vol_ 2).jpg') center/cover no-repeat;"></div>
+            <div style="padding: 6px 8px; font-size: 11px; font-weight: 500;">Marble Texture</div>
+          </div>
+
+          <div class="bg-card" data-bg="backgrounds/70437490779523.jpg" style="cursor: pointer; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; background: rgba(255,255,255,0.04); transition: all 0.2s;">
+            <div style="height: 70px; background: url('backgrounds/70437490779523.jpg') center/cover no-repeat;"></div>
+            <div style="padding: 6px 8px; font-size: 11px; font-weight: 500;">Retro Noir</div>
+          </div>
+
+          <div class="bg-card" data-bg="backgrounds/3799980931003983.jpg" style="cursor: pointer; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; background: rgba(255,255,255,0.04); transition: all 0.2s;">
+            <div style="height: 70px; background: url('backgrounds/3799980931003983.jpg') center/cover no-repeat;"></div>
+            <div style="padding: 6px 8px; font-size: 11px; font-weight: 500;">Neon Nights</div>
+          </div>
+
+          <div class="bg-card" data-bg="backgrounds/4081455907868430.jpg" style="cursor: pointer; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; background: rgba(255,255,255,0.04); transition: all 0.2s;">
+            <div style="height: 70px; background: url('backgrounds/4081455907868430.jpg') center/cover no-repeat;"></div>
+            <div style="padding: 6px 8px; font-size: 11px; font-weight: 500;">Cyber Glow</div>
+          </div>
+
+          <div class="bg-card" data-bg="backgrounds/66991113210464537.jpg" style="cursor: pointer; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; background: rgba(255,255,255,0.04); transition: all 0.2s;">
+            <div style="height: 70px; background: url('backgrounds/66991113210464537.jpg') center/cover no-repeat;"></div>
+            <div style="padding: 6px 8px; font-size: 11px; font-weight: 500;">Stargazer</div>
+          </div>
+
+          <div class="bg-card" data-bg="backgrounds/83105555617881947.jpg" style="cursor: pointer; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; background: rgba(255,255,255,0.04); transition: all 0.2s;">
+            <div style="height: 70px; background: url('backgrounds/83105555617881947.jpg') center/cover no-repeat;"></div>
+            <div style="padding: 6px 8px; font-size: 11px; font-weight: 500;">Deep Ocean</div>
+          </div>
+
+          <div class="bg-card" data-bg="backgrounds/354940014401468323.jpg" style="cursor: pointer; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; background: rgba(255,255,255,0.04); transition: all 0.2s;">
+            <div style="height: 70px; background: url('backgrounds/354940014401468323.jpg') center/cover no-repeat;"></div>
+            <div style="padding: 6px 8px; font-size: 11px; font-weight: 500;">Cozy Rain</div>
+          </div>
+
+          <div class="bg-card" data-bg="backgrounds/580823683238105968.jpg" style="cursor: pointer; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; background: rgba(255,255,255,0.04); transition: all 0.2s;">
+            <div style="height: 70px; background: url('backgrounds/580823683238105968.jpg') center/cover no-repeat;"></div>
+            <div style="padding: 6px 8px; font-size: 11px; font-weight: 500;">Midnight Lo-Fi</div>
+          </div>
+
+          <div class="bg-card" data-bg="backgrounds/898749669399010157.jpg" style="cursor: pointer; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; background: rgba(255,255,255,0.04); transition: all 0.2s;">
+            <div style="height: 70px; background: url('backgrounds/898749669399010157.jpg') center/cover no-repeat;"></div>
+            <div style="padding: 6px 8px; font-size: 11px; font-weight: 500;">Pastel Horizon</div>
+          </div>
+
+          <div class="bg-card" data-bg="backgrounds/943363453204313034.jpg" style="cursor: pointer; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; background: rgba(255,255,255,0.04); transition: all 0.2s;">
+            <div style="height: 70px; background: url('backgrounds/943363453204313034.jpg') center/cover no-repeat;"></div>
+            <div style="padding: 6px 8px; font-size: 11px; font-weight: 500;">Golden Hour</div>
+          </div>
+
+          <div class="bg-card" data-bg="backgrounds/946811521667203152.jpg" style="cursor: pointer; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; background: rgba(255,255,255,0.04); transition: all 0.2s;">
+            <div style="height: 70px; background: url('backgrounds/946811521667203152.jpg') center/cover no-repeat;"></div>
+            <div style="padding: 6px 8px; font-size: 11px; font-weight: 500;">Emerald Sky</div>
+          </div>
+
+          <div class="bg-card" data-bg="backgrounds/download.jpg" style="cursor: pointer; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; background: rgba(255,255,255,0.04); transition: all 0.2s;">
+            <div style="height: 70px; background: url('backgrounds/download.jpg') center/cover no-repeat;"></div>
+            <div style="padding: 6px 8px; font-size: 11px; font-weight: 500;">Vintage Mood</div>
+          </div>
+
+          <div class="bg-card" data-bg="backgrounds/download (1).jpg" style="cursor: pointer; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; background: rgba(255,255,255,0.04); transition: all 0.2s;">
+            <div style="height: 70px; background: url('backgrounds/download (1).jpg') center/cover no-repeat;"></div>
+            <div style="padding: 6px 8px; font-size: 11px; font-weight: 500;">Pastel Clouds</div>
+          </div>
+
+          <!-- Upload Custom Background -->
+          <div class="bg-card" id="btn-upload-bg" style="cursor: pointer; border-radius: 8px; border: 1px dashed var(--accent); overflow: hidden; background: rgba(57,255,20,0.06); transition: all 0.2s; display: flex; flex-direction: column;">
+            <div style="height: 70px; display: flex; align-items: center; justify-content: center; font-size: 26px;">📁</div>
+            <div style="padding: 6px 8px; font-size: 11px; font-weight: 600; color: var(--accent); text-align: center;">Upload Image</div>
+            <input type="file" id="settings-file-upload" accept="image/*" style="display: none;">
+          </div>
+        </div>
+
+        <!-- Transparency Mode Toggle -->
+        <div class="setting-item" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <div>
+            <div style="font-weight: 500; font-size: 14px;">Glass Transparency</div>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Enable see-through glass over desktop</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="toggle-window-transparency" checked>
+            <span class="slider round"></span>
+          </label>
+        </div>
+
+        <!-- Dark Text Contrast Toggle -->
+        <div class="setting-item" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <div>
+            <div style="font-weight: 500; font-size: 14px;">Dark Text / High Contrast</div>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Darkens fonts for high visibility on light backgrounds</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="toggle-dark-text">
+            <span class="slider round"></span>
+          </label>
+        </div>
+
+        <!-- Spotify Live Sync Toggle -->
+        <div class="setting-item" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+          <div>
+            <div style="font-weight: 500; font-size: 14px;">Spotify App Live Sync</div>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Mirror and control whatever is playing on Spotify</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="toggle-spotify-sync-setting">
+            <span class="slider round"></span>
+          </label>
+        </div>
+
+        <div class="setting-item" id="opacity-setting-container" style="display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 24px;">
+          <div style="display: flex; justify-content: space-between; width: 100%; margin-bottom: 12px;">
+            <span>Background Opacity</span>
+            <span id="opacity-value">85%</span>
+          </div>
+          <input type="range" id="opacity-slider" min="5" max="100" value="85">
+          <p class="opacity-desc">Makes the window translucent or completely transparent. Text stays sharp — only the background fades.</p>
+        </div>
+
+        <div class="setting-item" style="display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 32px;" id="brightness-setting-container">
+          <div style="display: flex; justify-content: space-between; width: 100%; margin-bottom: 12px;">
+            <span>Background Brightness</span>
+            <span id="brightness-value">80%</span>
+          </div>
+          <input type="range" id="brightness-slider" min="0" max="100" value="80">
+          <p class="opacity-desc">Adjust the overall brightness (darkness) of the background.</p>
+        </div>
+      </div>
+
+      <!-- Account Tab -->
+      <div id="tab-account" class="tab-pane" style="display: none;">
+        <p class="settings-desc">Manage your connected accounts and Spotify integration.</p>
+        <div class="opacity-box">
+          <div class="opacity-header">
+            <span>Spotify Integration</span>
+            <span id="spotify-status-text" style="color: var(--text-muted)">Not Connected</span>
+          </div>
+          <p class="opacity-desc" style="margin-bottom: 12px;">Connecting to Spotify allows you to stream your private playlists directly within MixTake.</p>
+          <button class="pill-btn" id="btn-auth-settings" style="background: rgba(255,255,255,0.1)">Login to Spotify</button>
+          
+          <!-- Inline Credentials Form -->
+          <div id="spotify-creds-form" style="display: none; margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.05);">
+            <div style="margin-bottom: 12px;">
+              <label style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">Client ID</label>
+              <input type="text" id="spotify-client-id" class="premium-input" placeholder="Enter Spotify Client ID" style="width: 100%; box-sizing: border-box;">
+            </div>
+            <div style="margin-bottom: 12px;">
+              <label style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">Client Secret</label>
+              <input type="password" id="spotify-client-secret" class="premium-input" placeholder="Enter Spotify Client Secret" style="width: 100%; box-sizing: border-box;">
+            </div>
+
+            <div style="margin-bottom: 12px;">
+              <label style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">Redirect URI (Must match Spotify Dashboard exactly)</label>
+              <select id="spotify-redirect-uri" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-main); padding: 10px; font-size: 13px; font-family: monospace; outline: none;">
+                <option value="http://127.0.0.1:8888/callback">http://127.0.0.1:8888/callback (Recommended)</option>
+                <option value="http://localhost:8888/callback">http://localhost:8888/callback</option>
+              </select>
+            </div>
+
+            <div style="background: rgba(255, 170, 0, 0.08); border: 1px solid rgba(255, 170, 0, 0.3); border-radius: 8px; padding: 12px; font-size: 11px; line-height: 1.5; color: #ffca28; margin-bottom: 16px;">
+              <strong>⚠️ Fix "redirect_uri: Not matching configuration":</strong><br>
+              1. In Spotify Developer Dashboard → Your App → <strong>Settings</strong><br>
+              2. Under <strong>Redirect URIs</strong>, add this exact URL:<br>
+              <div style="display: flex; gap: 6px; margin: 6px 0;">
+                <input type="text" id="settingsUriToCopy" value="http://127.0.0.1:8888/callback" readonly style="font-size: 11px; padding: 4px 6px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: #fff; font-family: monospace; flex: 1;">
+                <button type="button" id="btnSettingsCopyUri" style="background: var(--accent); color: #000; border: none; border-radius: 4px; padding: 4px 8px; font-size: 11px; font-weight: bold; cursor: pointer;">Copy</button>
+              </div>
+              3. Click <strong>Add</strong>, then scroll to the bottom and click <strong>Save</strong>!
+            </div>
+
+            <div style="display: flex; gap: 8px; align-items: center; margin-top: 10px;">
+              <button id="btn-save-spotify-creds" class="premium-btn" style="flex: 1;">Connect (In-App)</button>
+              <button id="btn-save-browser-creds" class="premium-btn" style="flex: 1; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2);">Connect in Browser</button>
+            </div>
+            <div style="text-align: right; margin-top: 8px;">
+              <a href="#" id="link-spotify-dev" style="font-size: 11px; color: var(--accent); text-decoration: none;">Open Spotify Dashboard?</a>
+            </div>
+          </div>
+          
+        </div>
+      </div>
+
+      <!-- Shortcuts Tab -->
+      <div id="tab-shortcuts" class="tab-pane" style="display: none;">
+        <p class="settings-desc" style="margin-bottom: 24px;">Click any box to record a new keyboard shortcut.</p>
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <span style="font-weight: 500; font-size: 14px;">Toggle MixTake</span>
+              <span style="font-size: 11px; color: var(--text-muted);">Global OS Shortcut</span>
+            </div>
+            <input type="text" id="shortcut-global" class="shortcut-recorder" readonly placeholder="Click to record" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: var(--text-main); padding: 8px 16px; border-radius: 8px; width: 140px; text-align: center; font-family: monospace; font-size: 14px; cursor: pointer; outline: none; transition: border-color 0.2s;">
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px; margin-bottom: 24px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 16px;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <span style="font-weight: 500; font-size: 14px;">Enable Global Shortcuts</span>
+              <span style="font-size: 12px; color: var(--text-muted);">Allow these shortcuts to work while using other apps</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="toggle-global-shortcuts">
+              <span class="slider round"></span>
+            </label>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <span style="font-weight: 500; font-size: 14px;">Search Music</span>
+              <span style="font-size: 11px; color: var(--text-muted);">In-App Shortcut</span>
+            </div>
+            <input type="text" id="shortcut-search" class="shortcut-recorder" readonly placeholder="Click to record" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: var(--text-main); padding: 8px 16px; border-radius: 8px; width: 140px; text-align: center; font-family: monospace; font-size: 14px; cursor: pointer; outline: none; transition: border-color 0.2s;">
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <span style="font-weight: 500; font-size: 14px;">Toggle Glass Transparency</span>
+              <span style="font-size: 11px; color: var(--text-muted);">In-App Shortcut</span>
+            </div>
+            <input type="text" id="shortcut-transparency" class="shortcut-recorder" readonly placeholder="Click to record" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: var(--text-main); padding: 8px 16px; border-radius: 8px; width: 140px; text-align: center; font-family: monospace; font-size: 14px; cursor: pointer; outline: none; transition: border-color 0.2s;">
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <span style="font-weight: 500; font-size: 14px;">Toggle Spotify Sync</span>
+              <span style="font-size: 11px; color: var(--text-muted);">In-App Shortcut</span>
+            </div>
+            <input type="text" id="shortcut-sync" class="shortcut-recorder" readonly placeholder="Click to record" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: var(--text-main); padding: 8px 16px; border-radius: 8px; width: 140px; text-align: center; font-family: monospace; font-size: 14px; cursor: pointer; outline: none; transition: border-color 0.2s;">
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <span style="font-weight: 500; font-size: 14px;">Open Settings</span>
+              <span style="font-size: 11px; color: var(--text-muted);">In-App Shortcut</span>
+            </div>
+            <input type="text" id="shortcut-settings" class="shortcut-recorder" readonly placeholder="Click to record" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: var(--text-main); padding: 8px 16px; border-radius: 8px; width: 140px; text-align: center; font-family: monospace; font-size: 14px; cursor: pointer; outline: none; transition: border-color 0.2s;">
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <span style="font-weight: 500; font-size: 14px;">Play / Pause</span>
+              <span style="font-size: 11px; color: var(--text-muted);">In-App Shortcut</span>
+            </div>
+            <input type="text" id="shortcut-play" class="shortcut-recorder" readonly placeholder="Click to record" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: var(--text-main); padding: 8px 16px; border-radius: 8px; width: 140px; text-align: center; font-family: monospace; font-size: 14px; cursor: pointer; outline: none; transition: border-color 0.2s;">
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <span style="font-weight: 500; font-size: 14px;">Next Song</span>
+              <span style="font-size: 11px; color: var(--text-muted);">In-App Shortcut</span>
+            </div>
+            <input type="text" id="shortcut-next" class="shortcut-recorder" readonly placeholder="Click to record" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: var(--text-main); padding: 8px 16px; border-radius: 8px; width: 140px; text-align: center; font-family: monospace; font-size: 14px; cursor: pointer; outline: none; transition: border-color 0.2s;">
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <span style="font-weight: 500; font-size: 14px;">Previous Song</span>
+              <span style="font-size: 11px; color: var(--text-muted);">In-App Shortcut</span>
+            </div>
+            <input type="text" id="shortcut-prev" class="shortcut-recorder" readonly placeholder="Click to record" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: var(--text-main); padding: 8px 16px; border-radius: 8px; width: 140px; text-align: center; font-family: monospace; font-size: 14px; cursor: pointer; outline: none; transition: border-color 0.2s;">
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <span style="font-weight: 500; font-size: 14px;">Toggle Loop</span>
+              <span style="font-size: 11px; color: var(--text-muted);">In-App Shortcut</span>
+            </div>
+            <input type="text" id="shortcut-loop" class="shortcut-recorder" readonly placeholder="Click to record" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: var(--text-main); padding: 8px 16px; border-radius: 8px; width: 140px; text-align: center; font-family: monospace; font-size: 14px; cursor: pointer; outline: none; transition: border-color 0.2s;">
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <span style="font-weight: 500; font-size: 14px;">Toggle Shuffle</span>
+              <span style="font-size: 11px; color: var(--text-muted);">In-App Shortcut</span>
+            </div>
+            <input type="text" id="shortcut-shuffle" class="shortcut-recorder" readonly placeholder="Click to record" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: var(--text-main); padding: 8px 16px; border-radius: 8px; width: 140px; text-align: center; font-family: monospace; font-size: 14px; cursor: pointer; outline: none; transition: border-color 0.2s;">
+          </div>
+        </div>
+        <div style="margin-top: 24px; padding: 16px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+          <p style="font-size: 12px; color: var(--text-muted); margin: 0;">
+            <strong style="color: var(--text-main);">Built-in media keys</strong> (always active):<br><br>
+            <code style="background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px;">MediaPlayPause</code> Play / Pause &nbsp;
+            <code style="background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px;">MediaTrackNext</code> Next &nbsp;
+            <code style="background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px;">MediaTrackPrev</code> Prev
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+  <script>
+    // Settings window: close button
+    document.getElementById('btn-close-settings-win').addEventListener('click', () => {
+      window.api.closeSettings()
+    })
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') window.api.closeSettings()
+    })
+  </script>
+</body>
+</html>

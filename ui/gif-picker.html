@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Select Background</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color-rgb: 15, 15, 15;
+      --accent: #39ff14;
+      --text-main: #ffffff;
+      --text-muted: rgba(255,255,255,0.6);
+      --border-color: rgba(255,255,255,0.1);
+    }
+    html {
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    * { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.15) transparent; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      padding: 0;
+      color: var(--text-main);
+      background: transparent;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      animation: popIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    body.closing {
+      animation: fadeOut 0.15s ease-in forwards;
+    }
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(0.97) translateY(8px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    @keyframes fadeOut {
+      from { opacity: 1; transform: scale(1); }
+      to { opacity: 0; transform: scale(0.97); }
+    }
+    .wrapper {
+      background: rgba(var(--bg-color-rgb), 0.85);
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+    .titlebar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      -webkit-app-region: drag;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .titlebar h3 { margin: 0; font-size: 14px; font-weight: 600; }
+    .header-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      -webkit-app-region: no-drag;
+    }
+    .content {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      flex: 1;
+      overflow-y: auto;
+    }
+    .upload-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    .upload-input {
+      flex: 1;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 6px 12px;
+      color: var(--text-main);
+      font-size: 12px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .upload-input:focus {
+      border-color: var(--accent);
+    }
+    .action-btn {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 6px 12px;
+      color: var(--text-main);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .action-btn:hover {
+      background: rgba(255,255,255,0.15);
+      border-color: var(--accent);
+    }
+    .action-btn.primary {
+      background: var(--accent);
+      color: #000;
+      border: none;
+      font-weight: 600;
+    }
+    .action-btn.primary:hover {
+      opacity: 0.9;
+    }
+    .gif-masonry {
+      column-width: 130px;
+      column-gap: 12px;
+    }
+    .gif-card {
+      break-inside: avoid;
+      margin-bottom: 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      overflow: hidden;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    }
+    .gif-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.3);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .gif-card.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 10px var(--accent);
+    }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+
+    .pill-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      padding: 4px 10px;
+      border-radius: 12px;
+      color: var(--text-main);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      -webkit-app-region: no-drag;
+      transition: background 0.2s;
+    }
+    .pill-btn:hover { background: rgba(255,255,255,0.15); }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="titlebar">
+      <h3>Background Gallery</h3>
+      <div class="header-actions">
+        <button id="uploadBtn" class="pill-btn" title="Choose file from your computer">📁 Upload File</button>
+        <button id="closeBtn" class="pill-btn" title="Close">✕</button>
+      </div>
+    </div>
+    <div class="content">
+      <div class="upload-bar">
+        <input type="text" id="urlInput" class="upload-input" placeholder="Or paste any image / GIF URL..." />
+        <button id="addUrlBtn" class="action-btn primary">+ Add</button>
+      </div>
+      <input type="file" id="filePicker" accept="image/*,.gif,.webp" style="display: none;" />
+      <div id="grid" class="gif-masonry"></div>
+    </div>
+  </div>
+
+  <script>
+    function applyTheme() {
+      try {
+        const vars = JSON.parse(localStorage.getItem('themeVars'));
+        if (vars) {
+          document.documentElement.style.setProperty('--bg-color-rgb', vars.bg);
+          document.documentElement.style.setProperty('--accent', vars.accent);
+          document.documentElement.style.setProperty('--text-main', vars.text);
+          document.documentElement.style.setProperty('--border-color', vars.border);
+        }
+      } catch(e) {}
+    }
+    applyTheme();
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'themeVars') applyTheme();
+    });
+  </script>
+  <script src="gif-picker.js"></script>
+</body>
+</html>
