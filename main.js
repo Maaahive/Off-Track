@@ -985,9 +985,18 @@ let spotifySyncActive = false
 let spotifySyncTimer = null
 
 let lastSpotifyProgressSec = 0
+let isSpotifyPolling = false
+
+function scheduleNextSpotifyPoll() {
+  if (spotifySyncTimer) clearTimeout(spotifySyncTimer)
+  if (spotifySyncActive) {
+    spotifySyncTimer = setTimeout(pollSpotifyPlayback, 1500)
+  }
+}
 
 async function pollSpotifyPlayback() {
-  if (!spotifySyncActive || !isLoggedIn()) return
+  if (!spotifySyncActive || !isLoggedIn() || isSpotifyPolling) return
+  isSpotifyPolling = true
   try {
     const spotify = await safeGetSpotifyClient()
     if (!spotify) return
@@ -1020,13 +1029,17 @@ async function pollSpotifyPlayback() {
         mainWindow.webContents.send('spotify-sync-update', track)
       }
     }
-  } catch (_) {}
+  } catch (_) {
+  } finally {
+    isSpotifyPolling = false
+    scheduleNextSpotifyPoll()
+  }
 }
 
 async function setSpotifySync(enabled) {
   spotifySyncActive = enabled
   if (spotifySyncTimer) {
-    clearInterval(spotifySyncTimer)
+    clearTimeout(spotifySyncTimer)
     spotifySyncTimer = null
   }
 
@@ -1035,91 +1048,93 @@ async function setSpotifySync(enabled) {
   }
 
   if (enabled) {
-    // If a song is currently playing on OffTrack, replicate/handoff playback to Spotify!
-    if (isNativeAudioPlaying && currentTrack && isLoggedIn()) {
-      try {
-        const spotify = await safeGetSpotifyClient()
-        if (spotify) {
-          let spotifyQuery = ''
-          if (currentTrack.artist && currentTrack.artist.toLowerCase() !== 'youtube') {
-            spotifyQuery = `${currentTrack.title} ${currentTrack.artist}`
-          } else if (currentTrack.query) {
-            spotifyQuery = currentTrack.query.replace(/\|DURATION:\d+/, '').trim()
-          } else {
-            spotifyQuery = currentTrack.title
-          }
-
-          console.log(`[SpotifySync] Searching Spotify for handoff: "${spotifyQuery}"`)
-          const searchRes = await spotify.searchTracks(spotifyQuery, { limit: 5 })
-          if (searchRes && searchRes.body && searchRes.body.tracks && searchRes.body.tracks.items.length > 0) {
-            const item = searchRes.body.tracks.items[0]
-            const positionMs = Math.floor(currentPlaybackSeconds * 1000)
-            const artistNames = item.artists ? item.artists.map(a => a.name).join(', ') : 'Unknown'
-            console.log(`[SpotifySync] Transferring playback to Spotify: "${item.name}" by ${artistNames} at ${positionMs}ms`)
-            
-            const devRes = await spotify.getMyDevices()
-            const devices = (devRes && devRes.body && devRes.body.devices) || []
-            const targetDevice = devices.find(d => d.is_active) || devices[0]
-            
-            const playOpts = {
-              uris: [item.uri],
-              position_ms: positionMs
-            }
-            if (targetDevice) {
-              playOpts.device_id = targetDevice.id
-            }
-            await spotify.play(playOpts)
-          } else {
-            console.warn(`[SpotifySync] No matching track found on Spotify for "${spotifyQuery}"`)
-          }
-        }
-      } catch (err) {
-        console.warn('[SpotifySync] Could not handoff song to Spotify:', err.message)
-      }
-    }
-
+    // 1. Immediately pause local audio so there is no audio overlap
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('native-audio-cmd-pause')
     }
     isNativeAudioPlaying = false
-    spotifySyncTimer = setInterval(pollSpotifyPlayback, 1200)
-    setTimeout(pollSpotifyPlayback, 400)
-  } else {
-    // Unsyncing: pause Spotify so audio does not keep playing on Spotify, and resume OffTrack!
-    let resumeSec = lastSpotifyProgressSec || currentPlaybackSeconds
-    if (isLoggedIn()) {
-      try {
-        const spotify = await safeGetSpotifyClient()
-        if (spotify) {
-          console.log('[SpotifySync] Pausing Spotify playback on unsync...')
-          const state = await spotify.getMyCurrentPlaybackState()
-          if (state && state.body) {
-            if (typeof state.body.progress_ms === 'number') {
-              resumeSec = Math.floor(state.body.progress_ms / 1000)
-            }
-            if (state.body.is_playing) {
-              const opts = state.body.device?.id ? { device_id: state.body.device.id } : {}
-              await spotify.pause(opts)
-            }
-          } else {
-            // Fallback direct pause
-            await spotify.pause()
-          }
-        }
-      } catch (err) {
-        console.warn('[SpotifySync] Could not pause Spotify on unsync:', err.message)
-      }
-    }
 
-    // Seamlessly resume OffTrack at the exact timestamp!
+    // 2. Start polling in background
+    scheduleNextSpotifyPoll()
+
+    // 3. Replicate/handoff playback to Spotify in background (non-blocking)
+    if (currentTrack && isLoggedIn()) {
+      (async () => {
+        try {
+          const spotify = await safeGetSpotifyClient()
+          if (spotify) {
+            let spotifyQuery = ''
+            if (currentTrack.artist && currentTrack.artist.toLowerCase() !== 'youtube') {
+              spotifyQuery = `${currentTrack.title} ${currentTrack.artist}`
+            } else if (currentTrack.query) {
+              spotifyQuery = currentTrack.query.replace(/\|DURATION:\d+/, '').trim()
+            } else {
+              spotifyQuery = currentTrack.title
+            }
+
+            console.log(`[SpotifySync] Searching Spotify for handoff: "${spotifyQuery}"`)
+            const searchRes = await spotify.searchTracks(spotifyQuery, { limit: 5 })
+            if (searchRes && searchRes.body && searchRes.body.tracks && searchRes.body.tracks.items.length > 0) {
+              const item = searchRes.body.tracks.items[0]
+              const positionMs = Math.floor(currentPlaybackSeconds * 1000)
+              const artistNames = item.artists ? item.artists.map(a => a.name).join(', ') : 'Unknown'
+              console.log(`[SpotifySync] Transferring playback to Spotify: "${item.name}" by ${artistNames} at ${positionMs}ms`)
+              
+              const devRes = await spotify.getMyDevices()
+              const devices = (devRes && devRes.body && devRes.body.devices) || []
+              const targetDevice = devices.find(d => d.is_active) || devices[0]
+              
+              const playOpts = {
+                uris: [item.uri],
+                position_ms: positionMs
+              }
+              if (targetDevice) {
+                playOpts.device_id = targetDevice.id
+              }
+              await spotify.play(playOpts)
+              // Immediately poll Spotify to sync state
+              pollSpotifyPlayback()
+            } else {
+              console.warn(`[SpotifySync] No matching track found on Spotify for "${spotifyQuery}"`)
+            }
+          }
+        } catch (err) {
+          console.warn('[SpotifySync] Could not handoff song to Spotify:', err.message)
+        }
+      })()
+    }
+  } else {
+    // 1. Unsyncing: IMMEDIATELY resume OffTrack playback with ZERO lag!
+    let resumeSec = lastSpotifyProgressSec || currentPlaybackSeconds
     if (mainWindow && !mainWindow.isDestroyed()) {
       if (currentTrack && currentTrack.durationSeconds > 0) {
         resumeSec = Math.min(resumeSec, currentTrack.durationSeconds - 1)
       }
-      console.log(`[SpotifySync] Resuming OffTrack playback at ${resumeSec}s`)
+      console.log(`[SpotifySync] Instantly resuming OffTrack playback at ${resumeSec}s`)
       mainWindow.webContents.send('native-audio-cmd-resume', resumeSec)
       isNativeAudioPlaying = true
       mainWindow.webContents.send('playback-state-update', false)
+    }
+
+    // 2. Pause Spotify asynchronously in the background so it never blocks the UI
+    if (isLoggedIn()) {
+      (async () => {
+        try {
+          const spotify = await safeGetSpotifyClient()
+          if (spotify) {
+            console.log('[SpotifySync] Pausing Spotify playback in background...')
+            const state = await spotify.getMyCurrentPlaybackState()
+            if (state && state.body && state.body.is_playing) {
+              const opts = state.body.device?.id ? { device_id: state.body.device.id } : {}
+              await spotify.pause(opts)
+            } else {
+              await spotify.pause()
+            }
+          }
+        } catch (err) {
+          console.warn('[SpotifySync] Could not pause Spotify on unsync:', err.message)
+        }
+      })()
     }
   }
 }

@@ -1642,7 +1642,10 @@ if (btnSpotifySync) {
       window.api.openCredentialsWindow();
       return;
     }
-    const newStatus = await window.api.toggleSpotifySync(!isSpotifySyncing);
+    const targetStatus = !isSpotifySyncing;
+    updateSpotifySyncUI(targetStatus);
+    showToast(targetStatus ? '🟢 Syncing to Spotify...' : '⚪ Back to OffTrack');
+    const newStatus = await window.api.toggleSpotifySync(targetStatus);
     updateSpotifySyncUI(newStatus);
   });
 }
