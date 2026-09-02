@@ -12,14 +12,6 @@
 
 ---
 
-## 💡 Shoutout & Inspiration
-
-Big shoutout to **[Saarthak Agarwal](https://www.linkedin.com/in/saarthak-agarwal-sa)** and his project **[Trak](https://github.com/Saarthak1234/trak.git)**! 
-
-The idea for OffTrack came directly from seeing what he built with Trak. I loved the concept and wanted to build my own take on a floating desktop companion — adding frosted glass transparency, two-way Spotify casting, and live soundwaves. Definitely go check out his work! 🚀
-
----
-
 ## ✨ Why OffTrack?
 
 Official desktop music players are often bloated, resource-heavy (taking 500MB–1GB+ RAM), and lock essential features behind paywalls. 
@@ -112,6 +104,14 @@ To sync your private Spotify playlists and enable two-way casting:
 1. Go to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard).
 2. Create an application and add `http://127.0.0.1:8888/callback` as a Redirect URI.
 3. In OffTrack, open **Settings** (`Ctrl+Shift+S`) ➔ **Account** ➔ enter your `Client ID` and `Client Secret` ➔ click **Login**.
+
+---
+
+## 💡 Shoutout & Inspiration
+
+Big shoutout to **[Saarthak Agarwal](https://www.linkedin.com/in/saarthak-agarwal-sa)** and his project **[Trak](https://github.com/Saarthak1234/trak.git)**! 
+
+The idea for OffTrack came directly from seeing what he built with Trak. I loved the concept and wanted to build my own take on a floating desktop companion — adding frosted glass transparency, two-way Spotify casting, and live soundwaves. Definitely go check out his work! 🚀
 
 ---
 
