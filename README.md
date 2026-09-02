@@ -1,7 +1,7 @@
 # ⚡ OffTrack
 
-> **All of YouTube's music catalog + your Spotify library, wrapped in a lightweight floating frosted-glass desktop HUD.**  
-> *Zero audio ads. Zero video clutter. Pure audio flow.*
+> **A clean, floating music player for your desktop. Streams whatever you want from YouTube ad-free and syncs with your Spotify.**  
+> *Zero ads. No heavy browser tabs. Just pure music while you work or game.*
 
 ---
 
@@ -12,11 +12,11 @@
 
 ---
 
-## 💡 Acknowledgments & Inspiration
+## 💡 Shoutout & Inspiration
 
-**OffTrack** was born from a desire to make desktop listening frictionless, lightweight, and visual. 
+Big shoutout to **[Saarthak Agarwal](https://www.linkedin.com/in/saarthak-agarwal-sa)** and his project **[Trak](https://github.com/Saarthak1234/trak.git)**! 
 
-A massive and heartfelt shoutout to **[Saarthak Agarwal](https://www.linkedin.com/in/saarthak-agarwal-sa)**, creator of **[Trak](https://github.com/Saarthak1234/trak.git)**. His initial project and open-source concept served as the key inspiration for this journey. OffTrack builds upon that spark with a frosted-glass HUD interface, two-way Spotify playback casting, live soundwave visualizers, and deep customization. Thank you, Saarthak! 🚀
+The idea for OffTrack came directly from seeing what he built with Trak. I loved the concept and wanted to build my own take on a floating desktop companion — adding frosted glass transparency, two-way Spotify casting, and live soundwaves. Definitely go check out his work! 🚀
 
 ---
 
