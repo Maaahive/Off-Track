@@ -61,6 +61,26 @@ ipcRenderer.on('native-audio-cmd-seek', (_, seconds) => {
   audio.currentTime = seconds
 })
 
+ipcRenderer.on('native-audio-cmd-pause', () => {
+  const audio = getAudio()
+  audio.pause()
+})
+
+ipcRenderer.on('native-audio-cmd-resume', (_, targetTime) => {
+  const audio = getAudio()
+  if (typeof targetTime === 'number' && !isNaN(targetTime) && targetTime >= 0) {
+    try {
+      audio.currentTime = targetTime
+    } catch (e) {
+      console.warn('[NativeAudio] Seek on resume failed:', e.message)
+    }
+  }
+  const p = audio.play()
+  if (p && p.catch) {
+    p.catch(e => console.warn('[NativeAudio] Resume error:', e.message))
+  }
+})
+
 ipcRenderer.on('native-audio-cmd-stop', () => {
   const audio = getAudio()
   audio.pause()

@@ -986,6 +986,8 @@ ipcMain.handle('seek', async (event, seconds) => {
 let spotifySyncActive = false
 let spotifySyncTimer = null
 
+let lastSpotifyProgressSec = 0
+
 async function pollSpotifyPlayback() {
   if (!spotifySyncActive || !isLoggedIn()) return
   try {
@@ -998,6 +1000,7 @@ async function pollSpotifyPlayback() {
       const isPlaying = res.body.is_playing
       const progressSec = Math.floor((res.body.progress_ms || 0) / 1000)
       const durationSec = Math.floor((item.duration_ms || 0) / 1000)
+      lastSpotifyProgressSec = progressSec
 
       const mins = Math.floor(durationSec / 60)
       const secs = durationSec % 60
@@ -1078,22 +1081,28 @@ async function setSpotifySync(enabled) {
     }
 
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('native-audio-cmd-stop')
+      mainWindow.webContents.send('native-audio-cmd-pause')
     }
     isNativeAudioPlaying = false
     spotifySyncTimer = setInterval(pollSpotifyPlayback, 1200)
     setTimeout(pollSpotifyPlayback, 400)
   } else {
-    // Unsyncing: pause Spotify so audio does not keep playing on Spotify
+    // Unsyncing: pause Spotify so audio does not keep playing on Spotify, and resume OffTrack!
+    let resumeSec = lastSpotifyProgressSec || currentPlaybackSeconds
     if (isLoggedIn()) {
       try {
         const spotify = await safeGetSpotifyClient()
         if (spotify) {
           console.log('[SpotifySync] Pausing Spotify playback on unsync...')
           const state = await spotify.getMyCurrentPlaybackState()
-          if (state && state.body && state.body.is_playing) {
-            const opts = state.body.device?.id ? { device_id: state.body.device.id } : {}
-            await spotify.pause(opts)
+          if (state && state.body) {
+            if (typeof state.body.progress_ms === 'number') {
+              resumeSec = Math.floor(state.body.progress_ms / 1000)
+            }
+            if (state.body.is_playing) {
+              const opts = state.body.device?.id ? { device_id: state.body.device.id } : {}
+              await spotify.pause(opts)
+            }
           } else {
             // Fallback direct pause
             await spotify.pause()
@@ -1102,6 +1111,17 @@ async function setSpotifySync(enabled) {
       } catch (err) {
         console.warn('[SpotifySync] Could not pause Spotify on unsync:', err.message)
       }
+    }
+
+    // Seamlessly resume OffTrack at the exact timestamp!
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (currentTrack && currentTrack.durationSeconds > 0) {
+        resumeSec = Math.min(resumeSec, currentTrack.durationSeconds - 1)
+      }
+      console.log(`[SpotifySync] Resuming OffTrack playback at ${resumeSec}s`)
+      mainWindow.webContents.send('native-audio-cmd-resume', resumeSec)
+      isNativeAudioPlaying = true
+      mainWindow.webContents.send('playback-state-update', false)
     }
   }
 }
