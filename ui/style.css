@@ -390,12 +390,15 @@ html, body {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-main);
   padding: 3px 10px;
   border-radius: 12px;
   font-size: 11px;
+  font-weight: 500;
   animation: pulseFade 1.4s infinite ease-in-out;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
 }
 
 .searching-spinner {
@@ -406,6 +409,36 @@ html, body {
   border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
+}
+
+.player-toast {
+  position: absolute;
+  bottom: 46px;
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  background: rgba(18, 18, 24, 0.9);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--text-main);
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 12px var(--accent);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  z-index: 1000;
+  white-space: nowrap;
+  max-width: 85%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.player-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 .progress-container {

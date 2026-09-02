@@ -16,6 +16,18 @@ safeOn('btn-minimize', 'click', () => {
 let isQueueMode = false;
 let isSpotifySyncing = false;
 
+let toastTimeout = null;
+function showToast(msg, duration = 3000) {
+  const toast = document.getElementById('player-toast');
+  if (!toast) return;
+  toast.innerHTML = msg;
+  toast.classList.add('show');
+  if (toastTimeout) clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => {
+    toast.classList.remove('show');
+  }, duration);
+}
+
 safeOn('btn-prev', 'click', () => {
   if (isSpotifySyncing) window.api.spotifyRemotePrev();
   else window.api.prevSong();
@@ -32,9 +44,11 @@ safeOn('btn-queue', 'click', () => {
     if (isQueueMode) {
       btn.style.color = 'var(--accent)';
       btn.title = 'Queue Mode: ON';
+      showToast('🔀 Queue Mode: ON (searches add to queue)');
     } else {
       btn.style.color = 'var(--text-muted)';
       btn.title = 'Queue Mode: OFF';
+      showToast('▶️ Play Mode: ON (searches play immediately)');
     }
   }
 });
@@ -541,7 +555,7 @@ function renderSidebarTracks(tracks) {
       ev.stopPropagation()
       const query = `${t.name} by ${t.artist}`
       window.api.addQueue(query)
-      document.getElementById('track-artist').innerText = `Queued: ${t.name}`
+      showToast(`✅ Added to Queue: "${t.name}"`)
       renderQueue()
     }
     
@@ -557,6 +571,8 @@ function renderSidebarTracks(tracks) {
 
       let query = `${t.name} by ${t.artist}`;
       if (t.duration_ms) query += `|DURATION:${t.duration_ms}`;
+      startSearchTimer(t.name);
+      showToast(`🔍 Searching: "${t.name}"...`);
       window.api.searchSong(query);
       
       if (!isQueueMode) {
@@ -1034,11 +1050,14 @@ if (searchInput) searchInput.addEventListener('keydown', async (e) => {
       searchContainer.classList.remove('expanded')
       searchInput.blur()
       
-      if (!isQueueMode) {
+      if (!isQueueMode || !isPlaying) {
+        startSearchTimer(query)
+        showToast(`🔍 Searching: "${query}"...`)
         window.api.searchSong(query)
       } else {
-        window.api.addQueue(query)
-        // Add silently to prevent overwriting the currently playing track info
+        await window.api.addQueue(query)
+        renderQueue()
+        showToast(`✅ Added to Queue: "${query}"`)
       }
     }
   }
@@ -1055,8 +1074,15 @@ function startSearchTimer(query) {
   const artistEl = document.getElementById('artist-name') || document.getElementById('track-artist');
   if (titleEl) titleEl.innerText = query;
   
+  updateProgressUI(0);
   const progressLine = document.getElementById('progress-fill') || document.querySelector('.progress');
   if (progressLine) progressLine.classList.add('is-searching');
+  
+  const icon = document.getElementById('icon-play');
+  if (icon) {
+    icon.classList.add('spin-fast');
+    icon.innerHTML = '<path d="M12 4V2A10 10 0 0 0 2 12h2a8 8 0 0 1 8-8z"/>';
+  }
   
   const updateTimer = () => {
     const elapsed = ((Date.now() - searchStartTime) / 1000).toFixed(1);
@@ -1075,6 +1101,8 @@ function stopSearchTimer() {
   }
   const progressLine = document.getElementById('progress-fill') || document.querySelector('.progress');
   if (progressLine) progressLine.classList.remove('is-searching');
+  const icon = document.getElementById('icon-play');
+  if (icon) icon.classList.remove('spin-fast');
 }
 
 window.api.onTrackLoading((event, payload) => {
@@ -1083,12 +1111,6 @@ window.api.onTrackLoading((event, payload) => {
     query = query.split('|DURATION:')[0].trim();
   }
   startSearchTimer(query);
-  
-  const icon = document.getElementById('icon-play');
-  if (icon) {
-    icon.classList.add('spin-fast');
-    icon.innerHTML = '<path d="M12 4V2A10 10 0 0 0 2 12h2a8 8 0 0 1 8-8z"/>';
-  }
 });
 
 // Seamlessly update playlist menu when background cache refresh completes
@@ -1350,6 +1372,7 @@ if (coverFileUpload) {
 
 window.api.onTrackStarted((event, track) => {
   stopSearchTimer();
+  showToast(`🎵 Now Playing: ${track.title || 'Track'}`);
   document.getElementById('track-title').innerText = track.title
   const artistEl = document.getElementById('artist-name')
   if (artistEl) {
