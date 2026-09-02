@@ -47,6 +47,11 @@ Official desktop music players are often bloated, resource-heavy (taking 500MB�
 - **OffTrack ➔ Spotify**: Listening to a track on OffTrack and want to switch to your phone or official desktop Spotify app? One click on **`⚪ Sync`** casts that exact song and seek timestamp directly into your active Spotify app!
 - **Spotify ➔ OffTrack**: Or use OffTrack as an interactive floating glass controller for whatever Spotify is playing.
 
+> [!IMPORTANT]
+> **Spotify Premium Required for Live Sync**: The Spotify Web API's remote playback control endpoints (`transfer`, `play`, `pause`, `seek`, `skip`) are strictly restricted by Spotify to **Spotify Premium** subscribers. If you have a Spotify Free account, Spotify's API will reject playback handoff and seeking commands. 
+> 
+> *Don't have Spotify Premium?* No problem! You can still import and play any public Spotify playlist URL into OffTrack, and enjoy 100% ad-free on-demand music with unlimited seeking using OffTrack's built-in player!
+
 ### 3. 🪟 Floating Frosted-Glass HUD (Always-On-Top)
 - Built for multitasking while coding, designing, or gaming — sits comfortably in the corner of your screen without window clutter.
 - Cycle through 5 transparency presets with one click (or right-click to reset):
@@ -118,10 +123,15 @@ npm start
 
 ## 🔑 (Optional) Spotify Developer Credentials
 
-To sync your private Spotify playlists and enable two-way casting:
+To sync your private Spotify library and enable two-way live casting:
 1. Go to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard).
 2. Create an application and add `http://127.0.0.1:8888/callback` as a Redirect URI.
-3. In OffTrack, open **Settings** (`Ctrl+Shift+S`) ➔ **Account** ➔ enter your `Client ID` and `Client Secret` ➔ click **Login**.
+3. *(If app is in Development Mode)*: Under **Settings ➔ User Management**, add the Spotify email address of any user who will log in.
+4. In OffTrack, open **Settings** (`Ctrl+Shift+S`) ➔ **Account** ➔ enter your `Client ID` and `Client Secret` ➔ click **Login**.
+
+> [!NOTE]
+> - **Spotify Premium Required for Live Sync**: Remote playback control (`play`, `pause`, `seek`, `skip`) requires a Spotify Premium account per Spotify's official Web API policy.
+> - **Zero Login Option**: You do **NOT** need a Spotify account to use OffTrack! You can search and stream any song on-demand ad-free, or paste public Spotify playlist links directly into the search bar without logging in.
 
 ---
 
