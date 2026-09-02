@@ -1183,5 +1183,12 @@ ipcMain.handle('spotify-remote-prev', async () => {
 ipcMain.handle('spotify-remote-seek', async (e, seconds) => {
   const spotify = await safeGetSpotifyClient()
   if (!spotify) return
-  try { await spotify.seek(Math.floor(seconds * 1000)) } catch (e) {}
+  try {
+    await spotify.seek(Math.floor(seconds * 1000))
+  } catch (err) {
+    console.warn('[SpotifyRemote] seek error:', err.message)
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('spotify-seek-restricted', seconds)
+    }
+  }
 })

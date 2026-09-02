@@ -159,4 +159,5 @@ contextBridge.exposeInMainWorld('api', {
   spotifyRemoteSeek: (seconds) => ipcRenderer.invoke('spotify-remote-seek', seconds),
   onSpotifySyncUpdate: (callback) => ipcRenderer.on('spotify-sync-update', callback),
   onSpotifySyncStatusChanged: (callback) => ipcRenderer.on('spotify-sync-status-changed', callback),
+  onSpotifySeekRestricted: (callback) => ipcRenderer.on('spotify-seek-restricted', callback),
 })

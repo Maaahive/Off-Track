@@ -29,12 +29,25 @@ function showToast(msg, duration = 3000) {
 }
 
 safeOn('btn-prev', 'click', () => {
-  if (isSpotifySyncing) window.api.spotifyRemotePrev();
-  else window.api.prevSong();
+  if (isSpotifySyncing) {
+    window.api.spotifyRemotePrev();
+  } else if (typeof currentPlaybackTime === 'number' && currentPlaybackTime > 4) {
+    seekRelative(-currentPlaybackTime);
+  } else {
+    window.api.prevSong();
+  }
 });
-safeOn('btn-next', 'click', () => {
-  if (isSpotifySyncing) window.api.spotifyRemoteNext();
-  else window.api.nextSong();
+safeOn('btn-next', 'click', async () => {
+  if (isSpotifySyncing) {
+    window.api.spotifyRemoteNext();
+  } else {
+    const queue = await window.api.getQueue();
+    if (queue && queue.length > 0) {
+      window.api.nextSong();
+    } else {
+      seekRelative(15);
+    }
+  }
 });
 
 safeOn('btn-queue', 'click', () => {
@@ -964,10 +977,16 @@ if (window) window.addEventListener('keydown', (e) => {
     if (!hasModifiers && (e.key === ' ' || e.key === 'Spacebar' || e.key === 'MediaPlayPause')) {
       e.preventDefault(); // prevent page scroll on space
       window.api.togglePlay();
-    } else if (!hasModifiers && (e.key === 'ArrowRight' || e.key === 'MediaTrackNext')) {
+    } else if (!hasModifiers && e.key === 'ArrowRight') {
+      e.preventDefault();
+      seekRelative(5);
+    } else if (!hasModifiers && e.key === 'ArrowLeft') {
+      e.preventDefault();
+      seekRelative(-5);
+    } else if (e.key === 'MediaTrackNext' || (hasModifiers && e.shiftKey && e.key === 'ArrowRight')) {
       e.preventDefault();
       window.api.nextSong();
-    } else if (!hasModifiers && (e.key === 'ArrowLeft' || e.key === 'MediaTrackPrevious')) {
+    } else if (e.key === 'MediaTrackPrevious' || (hasModifiers && e.shiftKey && e.key === 'ArrowLeft')) {
       e.preventDefault();
       window.api.prevSong();
     }
@@ -1723,6 +1742,12 @@ if (window.api && window.api.onSpotifySyncUpdate) {
   });
 }
 
+if (window.api && window.api.onSpotifySeekRestricted) {
+  window.api.onSpotifySeekRestricted(() => {
+    showToast('⚠️ Spotify Free restricts seeking. Click ⚪ Sync to seek freely on OffTrack!');
+  });
+}
+
 if (brightnessSlider) {
   brightnessSlider.value = savedBrightness
   brightnessValue.innerText = savedBrightness + '%'
@@ -2080,28 +2105,77 @@ safeOn('btn-play', 'click', () => {
 
 const progressBarContainer = document.querySelector('.progress-bar')
 let isDraggingProgress = false
+let currentPlaybackTime = 0
+
+function ensureCurrentDuration() {
+  if (currentDuration <= 0) {
+    const totalStr = document.querySelector('.time-total')?.innerText || ''
+    if (totalStr && totalStr.includes(':')) {
+      const parts = totalStr.split(':').map(Number)
+      if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        currentDuration = parts[0] * 60 + parts[1]
+      } else if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+        currentDuration = parts[0] * 3600 + parts[1] * 60 + parts[2]
+      }
+    }
+  }
+  return currentDuration
+}
 
 function seekToEvent(e) {
-  if (currentDuration > 0) {
+  const dur = ensureCurrentDuration()
+  if (dur > 0 && progressBarContainer) {
     const rect = progressBarContainer.getBoundingClientRect()
+    if (rect.width <= 0) return -1
     let clickX = e.clientX - rect.left
     if (clickX < 0) clickX = 0
     if (clickX > rect.width) clickX = rect.width
     const percent = clickX / rect.width
-    const targetTime = percent * currentDuration
+    const targetTime = percent * dur
     
     updateProgressUI(percent * 100)
-    document.querySelector('.time-elapsed').innerText = formatTime(targetTime)
+    const elapsedEl = document.querySelector('.time-elapsed')
+    if (elapsedEl) elapsedEl.innerText = formatTime(targetTime)
+    currentPlaybackTime = targetTime
     return targetTime
   }
   return -1
 }
 
-if (progressBarContainer) progressBarContainer.addEventListener('mousedown', (e) => {
-  console.log('DEBUG [renderer.js]: Mouse Down on progress bar')
-  isDraggingProgress = true
-  seekToEvent(e)
-})
+function performSeek(targetTime) {
+  if (targetTime < 0) return
+  if (isSpotifySyncing) {
+    window.api.spotifyRemoteSeek(targetTime)
+  } else {
+    window.api.seek(targetTime)
+  }
+}
+
+function seekRelative(deltaSeconds) {
+  const dur = ensureCurrentDuration()
+  if (dur > 0) {
+    const newTime = Math.max(0, Math.min(dur, currentPlaybackTime + deltaSeconds))
+    currentPlaybackTime = newTime
+    const pct = (newTime / dur) * 100
+    updateProgressUI(pct)
+    const elapsedEl = document.querySelector('.time-elapsed')
+    if (elapsedEl) elapsedEl.innerText = formatTime(newTime)
+    performSeek(newTime)
+    showToast(deltaSeconds > 0 ? `⏩ +${deltaSeconds}s` : `⏪ ${deltaSeconds}s`)
+  }
+}
+
+if (progressBarContainer) {
+  progressBarContainer.addEventListener('mousedown', (e) => {
+    isDraggingProgress = true
+    seekToEvent(e)
+  })
+
+  progressBarContainer.addEventListener('click', (e) => {
+    const targetTime = seekToEvent(e)
+    performSeek(targetTime)
+  })
+}
 
 if (window) window.addEventListener('mousemove', (e) => {
   if (isDraggingProgress) {
@@ -2111,18 +2185,12 @@ if (window) window.addEventListener('mousemove', (e) => {
 
 if (window) window.addEventListener('mouseup', (e) => {
   if (isDraggingProgress) {
-    console.log('DEBUG [renderer.js]: Mouse Up -> Sending Seek IPC to backend')
     isDraggingProgress = false
     const targetTime = seekToEvent(e)
-    if (targetTime >= 0) {
-      if (isSpotifySyncing) {
-        window.api.spotifyRemoteSeek(targetTime);
-      } else {
-        window.api.seek(targetTime);
-      }
-    }
+    performSeek(targetTime)
   }
 })
+
 
 // --- Custom Theme Builder Logic ---
 
