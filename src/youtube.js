@@ -42,10 +42,7 @@ export async function getStreamData(query) {
     const dlp = await getYtDlp()
     const output = await dlp.execPromise([
       `ytsearch5:${searchQuery}`,
-      '--get-title',
-      '--get-url',
-      '--get-duration',
-      '--get-thumbnail',
+      '--print', '%(title)s|||%(url)s|||%(duration_string)s|||%(thumbnail)s',
       '--extractor-args', 'youtube:player_client=android',
       '-f', 'ba[ext=m4a]/140/251/ba/b',
       '--no-playlist',
@@ -53,18 +50,19 @@ export async function getStreamData(query) {
       '--no-update',
       '--match-filter', 'duration < 600',
     ])
-    const lines = output.trim().split('\n')
-    if (lines.length < 4 || !lines[1]) {
+    const lines = output.trim().split('\n').filter(l => l.includes('|||'))
+    if (lines.length === 0) {
       throw new Error('No stream found matching criteria')
     }
     
     const results = [];
-    for (let i = 0; i < lines.length; i += 4) {
-      if (lines[i] && lines[i+1]) {
-        const title = lines[i];
-        const streamUrl = lines[i+1];
-        const durationStr = lines[i+2] || '0:00';
-        const thumbnail = lines[i+3] || '';
+    for (const line of lines) {
+      const parts = line.trim().split('|||');
+      if (parts.length >= 2) {
+        const title = parts[0] || 'Unknown';
+        const streamUrl = parts[1] || '';
+        const durationStr = parts[2] || '0:00';
+        const thumbnail = parts[3] || '';
         
         let durationSeconds = 0;
         const tparts = durationStr.split(':').map(Number);
@@ -90,7 +88,7 @@ export async function getStreamData(query) {
       console.log(`Matched closest stream: ${bestResult.title} (${bestResult.durationStr}) with target ${targetDurationMs}ms`);
     }
     
-    return { title: bestResult.title, streamUrl: bestResult.streamUrl, durationStr: bestResult.durationStr, thumbnail: bestResult.thumbnail }
+    return { title: bestResult.title, streamUrl: bestResult.streamUrl, durationStr: bestResult.durationStr, durationSeconds: bestResult.durationSeconds, thumbnail: bestResult.thumbnail }
   })();
 
   inFlightRequests.set(query, promise);
