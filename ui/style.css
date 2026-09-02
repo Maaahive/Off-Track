@@ -441,6 +441,116 @@ html, body {
   transform: translateX(-50%) translateY(0);
 }
 
+.search-choice-card {
+  position: absolute;
+  bottom: 50px;
+  left: 12px;
+  right: 12px;
+  background: rgba(18, 18, 24, 0.94);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.75), 0 0 16px rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 10px 14px;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(12px) scale(0.97);
+  transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.search-choice-card.show {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+}
+
+.choice-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.choice-title {
+  color: var(--text-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.choice-query {
+  color: var(--text-main);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 190px;
+}
+
+.choice-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 4px;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+
+.choice-close-btn:hover {
+  color: var(--text-main);
+}
+
+.choice-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.choice-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  outline: none;
+  border: none;
+}
+
+.choice-btn-play {
+  background: var(--accent);
+  color: #000000;
+  box-shadow: 0 2px 10px rgba(255, 255, 255, 0.2);
+}
+
+.choice-btn-play:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.choice-btn-queue {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-main);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.choice-btn-queue:hover {
+  background: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+}
+
 .progress-container {
   margin-top: auto;
   padding-bottom: 10px;

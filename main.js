@@ -787,9 +787,7 @@ ipcMain.handle('search-song', async (event, query) => {
   if (currentTrack && (!playHistory.length || playHistory[playHistory.length - 1] !== currentTrack.query)) {
     playHistory.push(currentTrack.query)
   }
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('native-audio-cmd-stop')
-  }
+  // Keep current song playing seamlessly until the new stream is fetched
   playTrack(query)
   return { success: true }
 })
