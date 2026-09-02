@@ -1083,6 +1083,26 @@ async function setSpotifySync(enabled) {
     isNativeAudioPlaying = false
     spotifySyncTimer = setInterval(pollSpotifyPlayback, 1200)
     setTimeout(pollSpotifyPlayback, 400)
+  } else {
+    // Unsyncing: pause Spotify so audio does not keep playing on Spotify
+    if (isLoggedIn()) {
+      try {
+        const spotify = await safeGetSpotifyClient()
+        if (spotify) {
+          console.log('[SpotifySync] Pausing Spotify playback on unsync...')
+          const state = await spotify.getMyCurrentPlaybackState()
+          if (state && state.body && state.body.is_playing) {
+            const opts = state.body.device?.id ? { device_id: state.body.device.id } : {}
+            await spotify.pause(opts)
+          } else {
+            // Fallback direct pause
+            await spotify.pause()
+          }
+        }
+      } catch (err) {
+        console.warn('[SpotifySync] Could not pause Spotify on unsync:', err.message)
+      }
+    }
   }
 }
 
