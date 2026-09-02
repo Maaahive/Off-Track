@@ -1080,6 +1080,26 @@ if (searchInput) searchInput.addEventListener('keydown', async (e) => {
       searchContainer.classList.remove('expanded');
       searchInput.blur();
       
+      // Smart playlist detection: if user pastes any Spotify playlist/album link directly in search bar
+      if (query.includes('spotify.com/playlist') || query.includes('spotify.com/album') || query.includes('spotify.link') || query.includes('spoti.fi')) {
+        showToast('🎵 Fetching Spotify Playlist (No Login Needed)...');
+        const data = await window.api.fetchPlaylistUrl(query);
+        if (data && data.status === 'success' && data.tracks && data.tracks.length > 0) {
+          const plName = data.playlistName || 'Imported Playlist';
+          let saved = JSON.parse(localStorage.getItem('savedPlaylists') || '[]');
+          if (!saved.find(s => s.id === query)) {
+            saved.push({ id: query, name: plName, tracks: data.tracks });
+            localStorage.setItem('savedPlaylists', JSON.stringify(saved));
+          }
+          openPlaylistSidebar('custom-url', plName, data.tracks);
+          showToast(`✅ Loaded "${plName}" (${data.tracks.length} songs)`);
+          return;
+        } else {
+          showToast(`⚠️ Could not load playlist: ${data?.message || 'Check link'}`);
+          return;
+        }
+      }
+
       if (isPlaying) {
         pendingSearchQuery = query;
         const choiceCard = document.getElementById('search-choice-card');
