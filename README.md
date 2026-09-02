@@ -86,8 +86,8 @@ Official desktop music players are often bloated, resource-heavy (taking 500MB�
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/your-username/OffTrack.git
-cd OffTrack
+git clone https://github.com/Maaahive/Off-Track.git
+cd Off-Track
 ```
 
 ### 2. Install Dependencies
@@ -121,6 +121,6 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 
 ## 👤 Author
 
-- **Mahi** - [GitHub](https://github.com/) 
+- **Mahi** - [GitHub](https://github.com/Maaahive) 
 
 *Inspired by [Trak](https://github.com/Saarthak1234/trak.git) by [Saarthak Agarwal](https://www.linkedin.com/in/saarthak-agarwal-sa).*
