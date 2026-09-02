@@ -1,4 +1,6 @@
+import fs from 'fs'
 import YTDlpWrapModule from 'yt-dlp-wrap'
+import ffmpegInstaller from '@ffmpeg-installer/ffmpeg'
 import { ensureYtDlpBinary } from '../scripts/ensure-ytdlp.js'
 const YTDlpWrap = YTDlpWrapModule.default || YTDlpWrapModule
 
@@ -40,7 +42,7 @@ export async function getStreamData(query) {
     
     console.log(`YouTube Search Query: ${searchQuery} (Target: ${targetDurationMs}ms)`)
     const dlp = await getYtDlp()
-    const output = await dlp.execPromise([
+    const dlpArgs = [
       `ytsearch5:${searchQuery}`,
       '--print', '%(title)s|||%(url)s|||%(duration_string)s|||%(thumbnail)s',
       '--extractor-args', 'youtube:player_client=android',
@@ -49,7 +51,11 @@ export async function getStreamData(query) {
       '--no-warnings',
       '--no-update',
       '--match-filter', 'duration < 600',
-    ])
+    ]
+    if (ffmpegInstaller && ffmpegInstaller.path && fs.existsSync(ffmpegInstaller.path)) {
+      dlpArgs.push('--ffmpeg-location', ffmpegInstaller.path)
+    }
+    const output = await dlp.execPromise(dlpArgs)
     const lines = output.trim().split('\n').filter(l => l.includes('|||'))
     if (lines.length === 0) {
       throw new Error('No stream found matching criteria')

@@ -71,7 +71,9 @@ export async function ensureYtDlpBinary() {
   console.log(`[OffTrack] Target: ${targetPath}`)
 
   try {
-    const res = await fetch(downloadUrl)
+    const res = await fetch(downloadUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' }
+    })
     if (!res.ok) {
       throw new Error(`Failed to download yt-dlp: HTTP ${res.status} ${res.statusText}`)
     }

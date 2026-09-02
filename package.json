@@ -10,6 +10,7 @@
     "postinstall": "node scripts/ensure-ytdlp.js"
   },
   "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "chalk": "^5.3.0",
     "conf": "^12.0.0",
     "dotenv": "^16.4.7",
