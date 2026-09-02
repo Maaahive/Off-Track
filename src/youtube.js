@@ -90,7 +90,7 @@ export async function getStreamData(query) {
       console.log(`Matched closest stream: ${bestResult.title} (${bestResult.durationStr}) with target ${targetDurationMs}ms`);
     }
     
-    return { title: bestResult.title, streamUrl: bestResult.streamUrl, durationStr: bestResult.durationStr }
+    return { title: bestResult.title, streamUrl: bestResult.streamUrl, durationStr: bestResult.durationStr, thumbnail: bestResult.thumbnail }
   })();
 
   inFlightRequests.set(query, promise);

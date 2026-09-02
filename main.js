@@ -125,7 +125,45 @@ async function preloadNext() {
   }
 }
 
+function parseTrackMetadata(youtubeTitle, originalQuery) {
+  let clean = (youtubeTitle || '')
+    .replace(/\s*[\(\[\{][^\)\]\}]*[\)\]\}]\s*/g, ' ')
+    .replace(/\b(official\s+video|official\s+audio|official\s+music\s+video|music\s+video|lyric\s+video|lyrics|visualizer|audio|4k|hd|remastered|full\s+song)\b/gi, ' ')
+    .replace(/\|.*$/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  let artist = 'YouTube'
+  let title = clean
+
+  if (clean.includes(' - ')) {
+    const parts = clean.split(' - ')
+    artist = parts[0].trim()
+    title = parts.slice(1).join(' - ').trim()
+  } else if (clean.includes(' – ')) {
+    const parts = clean.split(' – ')
+    artist = parts[0].trim()
+    title = parts.slice(1).join(' – ').trim()
+  } else if (clean.includes(': ')) {
+    const parts = clean.split(': ')
+    artist = parts[0].trim()
+    title = parts.slice(1).join(': ').trim()
+  }
+
+  if (!title) title = clean || originalQuery || 'Unknown Track'
+  if (!artist || artist.toLowerCase() === 'youtube') {
+    artist = 'YouTube'
+  }
+
+  return { artist, title }
+}
+
 async function playTrack(query) {
+  if (spotifySyncActive) {
+    console.log('[playTrack] Stopping active Spotify sync to play new OffTrack song')
+    await setSpotifySync(false)
+  }
+
   const token = ++currentPlayToken
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('track-loading', query)
@@ -159,13 +197,15 @@ async function playTrack(query) {
       else if (parts.length === 1) durationSeconds = parts[0]
     }
 
+    const meta = parseTrackMetadata(data.title, query)
     currentTrack = {
-      title: data.title,
-      artist: 'YouTube',
+      title: meta.title,
+      artist: meta.artist,
       durationSeconds,
       durationStr: data.durationStr,
       query,
       albumArt: data.thumbnail || '',
+      rawTitle: data.title,
     }
 
     isManualStop = false
@@ -970,22 +1010,37 @@ async function pollSpotifyPlayback() {
 
 async function setSpotifySync(enabled) {
   spotifySyncActive = enabled
-  if (spotifySyncTimer) clearInterval(spotifySyncTimer)
+  if (spotifySyncTimer) {
+    clearInterval(spotifySyncTimer)
+    spotifySyncTimer = null
+  }
+
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('spotify-sync-status-changed', enabled)
+  }
+
   if (enabled) {
-    // If a song is currently playing on MixTake, replicate/handoff playback to Spotify!
+    // If a song is currently playing on OffTrack, replicate/handoff playback to Spotify!
     if (isNativeAudioPlaying && currentTrack && isLoggedIn()) {
       try {
         const spotify = await safeGetSpotifyClient()
         if (spotify) {
-          const cleanTitle = (currentTrack.title || '').replace(/[\(\[\{].*?[\)\]\}]/g, '').trim()
-          const cleanArtist = (currentTrack.artist || '').replace(/[\(\[\{].*?[\)\]\}]/g, '').trim()
-          const query = cleanArtist ? `${cleanTitle} ${cleanArtist}` : cleanTitle
-          
-          const searchRes = await spotify.searchTracks(query, { limit: 1 })
+          let spotifyQuery = ''
+          if (currentTrack.artist && currentTrack.artist.toLowerCase() !== 'youtube') {
+            spotifyQuery = `${currentTrack.title} ${currentTrack.artist}`
+          } else if (currentTrack.query) {
+            spotifyQuery = currentTrack.query.replace(/\|DURATION:\d+/, '').trim()
+          } else {
+            spotifyQuery = currentTrack.title
+          }
+
+          console.log(`[SpotifySync] Searching Spotify for handoff: "${spotifyQuery}"`)
+          const searchRes = await spotify.searchTracks(spotifyQuery, { limit: 5 })
           if (searchRes && searchRes.body && searchRes.body.tracks && searchRes.body.tracks.items.length > 0) {
             const item = searchRes.body.tracks.items[0]
             const positionMs = Math.floor(currentPlaybackSeconds * 1000)
-            console.log(`[SpotifySync] Transferring playback to Spotify: ${item.name} at ${positionMs}ms`)
+            const artistNames = item.artists ? item.artists.map(a => a.name).join(', ') : 'Unknown'
+            console.log(`[SpotifySync] Transferring playback to Spotify: "${item.name}" by ${artistNames} at ${positionMs}ms`)
             
             const devRes = await spotify.getMyDevices()
             const devices = (devRes && devRes.body && devRes.body.devices) || []
@@ -999,6 +1054,8 @@ async function setSpotifySync(enabled) {
               playOpts.device_id = targetDevice.id
             }
             await spotify.play(playOpts)
+          } else {
+            console.warn(`[SpotifySync] No matching track found on Spotify for "${spotifyQuery}"`)
           }
         }
       } catch (err) {

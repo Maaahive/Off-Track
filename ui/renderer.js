@@ -1042,26 +1042,74 @@ if (window) window.addEventListener('keydown', (e) => {
   }
 })
 
+let pendingSearchQuery = null;
+
+function executePlayNow(query) {
+  if (isSpotifySyncing) {
+    updateSpotifySyncUI(false);
+  }
+  startSearchTimer(query);
+  showToast(`🔍 Searching: "${query}"...`);
+  window.api.searchSong(query);
+}
+
 if (searchInput) searchInput.addEventListener('keydown', async (e) => {
   if (e.key === 'Enter') {
-    const query = e.target.value.trim()
+    const query = e.target.value.trim();
     if (query) {
-      e.target.value = ''
-      searchContainer.classList.remove('expanded')
-      searchInput.blur()
+      e.target.value = '';
+      searchContainer.classList.remove('expanded');
+      searchInput.blur();
       
-      if (!isQueueMode || !isPlaying) {
-        startSearchTimer(query)
-        showToast(`🔍 Searching: "${query}"...`)
-        window.api.searchSong(query)
+      if (isPlaying) {
+        pendingSearchQuery = query;
+        const choiceCard = document.getElementById('search-choice-card');
+        const choiceQueryText = document.getElementById('choice-query-text');
+        if (choiceQueryText) choiceQueryText.textContent = `"${query}"`;
+        if (choiceCard) choiceCard.classList.add('show');
       } else {
-        await window.api.addQueue(query)
-        renderQueue()
-        showToast(`✅ Added to Queue: "${query}"`)
+        executePlayNow(query);
       }
     }
   }
-})
+});
+
+const btnChoicePlay = document.getElementById('btn-choice-play');
+if (btnChoicePlay) {
+  btnChoicePlay.addEventListener('click', () => {
+    const choiceCard = document.getElementById('search-choice-card');
+    if (choiceCard) choiceCard.classList.remove('show');
+    if (pendingSearchQuery) {
+      const q = pendingSearchQuery;
+      pendingSearchQuery = null;
+      executePlayNow(q);
+    }
+  });
+}
+
+const btnChoiceQueue = document.getElementById('btn-choice-queue');
+if (btnChoiceQueue) {
+  btnChoiceQueue.addEventListener('click', async () => {
+    const choiceCard = document.getElementById('search-choice-card');
+    if (choiceCard) choiceCard.classList.remove('show');
+    if (pendingSearchQuery) {
+      const q = pendingSearchQuery;
+      pendingSearchQuery = null;
+      await window.api.addQueue(q);
+      renderQueue();
+      showToast(`✅ Added to Queue: "${q}"`);
+    }
+  });
+}
+
+const btnChoiceClose = document.getElementById('btn-choice-close');
+if (btnChoiceClose) {
+  btnChoiceClose.addEventListener('click', () => {
+    const choiceCard = document.getElementById('search-choice-card');
+    if (choiceCard) choiceCard.classList.remove('show');
+    pendingSearchQuery = null;
+  });
+}
 
 let searchTimerInterval = null;
 let searchStartTime = 0;
@@ -1074,7 +1122,9 @@ function startSearchTimer(query) {
   const artistEl = document.getElementById('artist-name') || document.getElementById('track-artist');
   if (titleEl) titleEl.innerText = query;
   
-  updateProgressUI(0);
+  if (!isPlaying) {
+    updateProgressUI(0);
+  }
   const progressLine = document.getElementById('progress-fill') || document.querySelector('.progress');
   if (progressLine) progressLine.classList.add('is-searching');
   
@@ -1384,6 +1434,9 @@ window.api.onTrackStarted((event, track) => {
   isPlaying = true
   updatePlayIcon()
   document.querySelector('.time-total').innerText = track.durationStr || '0:00'
+  const elapsedEl = document.querySelector('.time-elapsed');
+  if (elapsedEl) elapsedEl.innerText = '0:00';
+  updateProgressUI(0);
   if (track.albumArt) {
     updateAlbumCover(track.albumArt)
   }
@@ -1588,6 +1641,12 @@ if (toggleSpotifySyncSetting) {
 // Check initial sync status
 if (window.api && window.api.getSpotifySyncStatus) {
   window.api.getSpotifySyncStatus().then(updateSpotifySyncUI);
+}
+
+if (window.api && window.api.onSpotifySyncStatusChanged) {
+  window.api.onSpotifySyncStatusChanged((_, active) => {
+    updateSpotifySyncUI(active);
+  });
 }
 
 // Receive live playback updates from official Spotify app!
