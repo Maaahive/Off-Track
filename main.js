@@ -94,13 +94,6 @@ function createWindow() {
     return false
   })
 
-  mainWindow.webContents.on('did-finish-load', async () => {
-    if (isLoggedIn()) {
-      console.log('[OffTrack] Connected to Spotify. Auto-enabling Spotify Sync by default...')
-      await setSpotifySync(true)
-    }
-  })
-
   mainWindow.loadFile(path.join(__dirname, 'ui', 'index.html'))
 }
 
