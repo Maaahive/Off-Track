@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "electron .",
-    "dev": "electron ."
+    "dev": "electron .",
+    "postinstall": "node scripts/ensure-ytdlp.js"
   },
   "dependencies": {
     "chalk": "^5.3.0",

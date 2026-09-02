@@ -1,7 +1,26 @@
 import YTDlpWrapModule from 'yt-dlp-wrap'
+import { ensureYtDlpBinary } from '../scripts/ensure-ytdlp.js'
 const YTDlpWrap = YTDlpWrapModule.default || YTDlpWrapModule
 
-const ytDlp = new YTDlpWrap()
+let ytDlpInstance = null
+let ytDlpPromise = null
+
+async function getYtDlp() {
+  if (ytDlpInstance) return ytDlpInstance
+  if (!ytDlpPromise) {
+    ytDlpPromise = (async () => {
+      const binaryPath = await ensureYtDlpBinary()
+      ytDlpInstance = new YTDlpWrap(binaryPath)
+      return ytDlpInstance
+    })()
+  }
+  return ytDlpPromise
+}
+
+// Proactively initialize on startup in background
+getYtDlp().catch((err) => {
+  console.error('[OffTrack] Background yt-dlp initialization error:', err)
+})
 
 const inFlightRequests = new Map();
 
@@ -20,7 +39,8 @@ export async function getStreamData(query) {
     }
     
     console.log(`YouTube Search Query: ${searchQuery} (Target: ${targetDurationMs}ms)`)
-    const output = await ytDlp.execPromise([
+    const dlp = await getYtDlp()
+    const output = await dlp.execPromise([
       `ytsearch5:${searchQuery}`,
       '--get-title',
       '--get-url',

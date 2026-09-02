@@ -7,3 +7,5 @@ dist-electron/
 electron-app/.env
 scratch/
 *.lnk
+vendor/
+*.exe
