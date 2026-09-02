@@ -37,34 +37,36 @@ Official desktop music players are often bloated, resource-heavy (taking 500MB�
 
 ## 🚀 Key Features
 
-### 1. 🌊 Animated Audio Sound Wave Playing Line
-- The progress bar isn't just a flat line — when music is active, an undulating **dual-frequency sound wave** flows smoothly across the played track.
-- A pulsing glowing playhead dot pulses with the beat.
+### 1. 🎵 100% Ad-Free YouTube Audio Engine
+- Stream **any song, remix, live concert, unreleased leak, or lo-fi mix** from YouTube on-demand with zero video clutter and zero ads.
+- Lightweight audio extraction that saves massive bandwidth, RAM, and battery compared to running YouTube in a browser tab.
 
 ### 2. 🔀 Two-Way Spotify Smart Handoff (`⚪ Sync`)
-- **OffTrack ➔ Spotify**: Listening to a song in OffTrack and want to continue on your phone or official Spotify app? Click **`⚪ Sync`** — OffTrack searches for the track on Spotify and casts playback directly to your active Spotify app **at the exact same second**!
-- **Spotify ➔ OffTrack**: Or use OffTrack as a sleek floating glass controller HUD for whatever Spotify is playing.
+- **OffTrack ➔ Spotify**: Listening to a track on OffTrack and want to switch to your phone or official desktop Spotify app? One click on **`⚪ Sync`** casts that exact song and seek timestamp directly into your active Spotify app!
+- **Spotify ➔ OffTrack**: Or use OffTrack as an interactive floating glass controller for whatever Spotify is playing.
 
-### 3. ⏳ Live Searching Timer & Scanner
-- Searching for a track triggers a live timer (`⏳ Searching... 1.2s`) and a pulsating radar scan beam across the player so you always know what's happening.
-
-### 4. 🪟 Frosted Glass Transparency Presets
-- Cycle through transparency modes or right-click to reset anytime:
+### 3. 🪟 Floating Frosted-Glass HUD (Always-On-Top)
+- Built for multitasking while coding, designing, or gaming — sits comfortably in the corner of your screen without window clutter.
+- Cycle through 5 transparency presets with one click (or right-click to reset):
   - **`🖼️ Original`**: 100% crisp wallpaper brightness and full image opacity.
   - **`💎 Glass`**: 65% frosted glass with backdrop blur.
   - **`💧 Clear`**: 30% see-through glass.
-  - **`👻 Ghost`**: 5% ultra-subtle HUD for coding and gaming.
+  - **`👻 Ghost`**: 5% ultra-subtle HUD for deep work.
   - **`⬛ Solid`**: Dark minimal player.
+
+### 4. ⌨️ Global Keyboard Shortcuts & System Tray
+- Full background control with global hotkeys and built-in OS media keys (`Play/Pause`, `Next`, `Prev`).
+- Customize hotkeys in Settings or minimize cleanly to the Windows System Tray.
 
 ### 5. 🎨 41 Preloaded Aesthetic Album Covers & Custom Upload
 - Right-click the album cover to open the **Covers Modal**:
-  - **`🎵 Auto (Song Art)`**: Dynamically loads the official artwork for the song playing.
-  - **`📁 Upload Your Own`**: Pick any image from your PC.
-  - **41 Curated Preloaded Covers**: Instant one-click presets.
+  - **`🎵 Auto (Song Art)`**: Dynamically pulls the official high-res artwork for the song playing.
+  - **`📁 Upload Your Own`**: Set any image or wallpaper from your PC.
+  - **41 Preloaded Aesthetic Covers**: Instant one-click visual presets.
 
-### 6. ⌨️ Global Keyboard Shortcuts & System Tray
-- Control music from anywhere across Windows with global shortcuts even while full-screen in games or code editors.
-- Minimizes cleanly to the Windows System Tray.
+### 6. 🌊 Animated Audio Sound Wave & Live Search Timer
+- The progress bar isn't just a flat line — an undulating **dual-frequency sound wave** flows across the line while music is active, paired with a pulsing glowing playhead dot.
+- Searching for a track triggers a live latency ticker (`⏳ Searching... 1.2s`) and a radar sweep scanner so you always know what's happening.
 
 ---
 
