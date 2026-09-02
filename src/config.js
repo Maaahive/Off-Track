@@ -41,10 +41,13 @@ export function getUserInfo() {
   }
 }
 
+const DEFAULT_CLIENT_ID = '80f5cef9cfed4d2db088be68425f7ab0'
+const DEFAULT_CLIENT_SECRET = '0aede0316eb34e7395613a754653ad44'
+
 export function getAppCredentials() {
   return {
-    clientId:     config.get('spotifyClientId'),
-    clientSecret: config.get('spotifyClientSecret'),
+    clientId:     config.get('spotifyClientId') || process.env.SPOTIFY_CLIENT_ID || DEFAULT_CLIENT_ID,
+    clientSecret: config.get('spotifyClientSecret') || process.env.SPOTIFY_CLIENT_SECRET || DEFAULT_CLIENT_SECRET,
     redirectUri:  config.get('redirectUri') || 'http://127.0.0.1:8888/callback',
   }
 }
