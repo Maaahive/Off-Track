@@ -76,7 +76,7 @@ function createWindow() {
     minHeight: 250,
     backgroundColor: '#00000000',
     title: 'OffTrack',
-    icon: path.join(__dirname, 'icon.png'),
+    icon: path.join(__dirname, 'assets', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -243,7 +243,7 @@ ipcMain.on('native-audio-error', (_, err) => {
 
 // ─── App Lifecycle ───────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
-  const trayIconPath = path.join(__dirname, 'trayTemplate.png')
+  const trayIconPath = path.join(__dirname, 'assets', 'trayTemplate.png')
   if (fs.existsSync(trayIconPath)) {
     try {
       tray = new Tray(nativeImage.createFromPath(trayIconPath))
