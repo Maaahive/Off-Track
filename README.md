@@ -1,14 +1,24 @@
 # ⚡ OffTrack
 
-> **A clean, floating music player for your desktop. Streams whatever you want from YouTube ad-free and syncs with your Spotify.**  
-> *Zero ads. No heavy browser tabs. Just pure music while you work or game.*
-
----
+A clean, lightweight, floating frosted-glass music player for your desktop. Streams whatever you want from YouTube ad-free and syncs seamlessly with your Spotify library.
 
 [![Electron](https://img.shields.io/badge/Electron-33.x-47848F?logo=electron&logoColor=white)](https://electronjs.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Spotify API](https://img.shields.io/badge/Spotify-Web%20API-1DB954?logo=spotify&logoColor=white)](https://developer.spotify.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+---
+
+## 🎧 Intro & Backstory
+
+I just wanted a minimal music companion that sits quietly in the corner of my screen while I code, design, or game — without loud ads, heavy browser tabs, or bloated apps eating up half my screen.
+
+Standard desktop players take up way too much space and RAM, while keeping YouTube open in Chrome wastes CPU and battery rendering video tracks in the background even when you only care about the audio. And free tiers constantly interrupt your flow with audio ads.
+
+**OffTrack brings the best of both worlds together:**
+- **Zero Ads, Pure Audio**: Taps directly into YouTube's audio stream so you can search and stream literally any track, unreleased leak, live set, or lo-fi mix on-demand without video lag or ad interruptions.
+- **Two-Way Spotify Handoff**: Connect your Spotify account to import private playlists, or hit **`⚪ Sync`** to instantly cast whatever is currently playing in OffTrack straight into your official desktop/mobile Spotify app at the exact same timestamp.
+- **Floating Frosted Glass HUD**: An always-on-top, borderless widget with 5 transparency presets (`Original Wallpaper`, `Frosted Glass`, `Clear`, `Ghost`, `Solid`) designed to stay visible without getting in your way.
 
 ---
 
