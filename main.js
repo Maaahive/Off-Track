@@ -74,6 +74,7 @@ function createWindow() {
     resizable: true,
     minWidth: 400,
     minHeight: 250,
+    alwaysOnTop: true,
     backgroundColor: '#00000000',
     title: 'OffTrack',
     icon: path.join(__dirname, 'assets', 'icon.png'),
@@ -85,6 +86,7 @@ function createWindow() {
       backgroundThrottling: false, // Prevents background audio stuttering on Windows
     }
   })
+  mainWindow.setAlwaysOnTop(true, 'screen-saver')
 
   mainWindow.on('close', (event) => {
     if (!app.isQuiting) {
@@ -403,6 +405,18 @@ ipcMain.handle('close-app', () => {
 
 ipcMain.handle('minimize-app', () => {
   if (mainWindow) mainWindow.minimize()
+})
+
+ipcMain.handle('toggle-always-on-top', () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return false
+  const newState = !mainWindow.isAlwaysOnTop()
+  mainWindow.setAlwaysOnTop(newState, 'screen-saver')
+  return newState
+})
+
+ipcMain.handle('get-always-on-top', () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return true
+  return mainWindow.isAlwaysOnTop()
 })
 
 ipcMain.handle('open-external', (event, url) => {

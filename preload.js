@@ -76,6 +76,8 @@ ipcRenderer.on('native-audio-cmd-loop', (_, isLooping) => {
 contextBridge.exposeInMainWorld('api', {
   close: () => ipcRenderer.invoke('close-app'),
   minimize: () => ipcRenderer.invoke('minimize-app'),
+  toggleAlwaysOnTop: () => ipcRenderer.invoke('toggle-always-on-top'),
+  getAlwaysOnTop: () => ipcRenderer.invoke('get-always-on-top'),
   saveCustomTheme: (theme) => ipcRenderer.invoke('save-custom-theme', theme),
   deleteCustomTheme: (themeName) => ipcRenderer.invoke('delete-custom-theme', themeName),
   loadCustomThemes: () => ipcRenderer.invoke('load-custom-themes'),

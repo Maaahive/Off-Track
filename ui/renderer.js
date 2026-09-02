@@ -1543,6 +1543,28 @@ if (toggleWindowTransparency) {
 
 applyTransMode(currentTransIndex);
 
+// ─── Always-on-Top / Pin Toggle ──────────────────────────────────────────────
+const btnPin = document.getElementById('btn-pin');
+if (btnPin) {
+  function updatePinUI(isPinned) {
+    btnPin.innerText = isPinned ? '📌 Pinned' : '📍 Unpinned';
+    btnPin.style.color = isPinned ? 'var(--accent)' : 'var(--text-muted)';
+    btnPin.title = isPinned ? 'Always on top: Floating over all windows (Click to unpin)' : 'Click to pin on top of all windows';
+  }
+
+  if (window.api && window.api.getAlwaysOnTop) {
+    window.api.getAlwaysOnTop().then(updatePinUI);
+  }
+
+  btnPin.addEventListener('click', async () => {
+    if (window.api && window.api.toggleAlwaysOnTop) {
+      const isPinned = await window.api.toggleAlwaysOnTop();
+      updatePinUI(isPinned);
+      showToast(isPinned ? '📌 Pinned on top of all apps' : '📍 Window unpinned');
+    }
+  });
+}
+
 // Connect Settings appearance sliders
 if (opacitySlider) {
   opacitySlider.value = savedOpacity;
