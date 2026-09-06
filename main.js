@@ -447,11 +447,12 @@ ipcMain.handle('save-spotify-creds', async (event, id, secret, redirectUri) => {
   if (credsWindow) credsWindow.close()
   cancelAuthCallback()
   try {
-    await electronAuthCommand((authUrl) => {
-      const authWin = new BrowserWindow({
-        width: 520,
-        height: 720,
-        title: 'Connect Spotify (MixTake)',
+    let authWin = null
+    const result = await electronAuthCommand(async (authUrl) => {
+      authWin = new BrowserWindow({
+        width: 540,
+        height: 750,
+        title: 'Connect Spotify (OffTrack)',
         alwaysOnTop: true,
         autoHideMenuBar: false,
         webPreferences: {
@@ -459,11 +460,11 @@ ipcMain.handle('save-spotify-creds', async (event, id, secret, redirectUri) => {
           contextIsolation: true,
         }
       })
-      authWin.webContents.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36')
+      authWin.webContents.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36')
       
       const menu = Menu.buildFromTemplate([
         {
-          label: '🌐 Open in Browser (1-Click)',
+          label: '🌐 Open in System Browser',
           click: () => {
             shell.openExternal(authUrl)
           }
@@ -479,39 +480,69 @@ ipcMain.handle('save-spotify-creds', async (event, id, secret, redirectUri) => {
 
       authWin.loadURL(authUrl)
       authWin.webContents.on('did-navigate', (_, url) => {
-        console.log('[SpotifyAuth] Navigated to:', url)
+        console.log('[SpotifyAuth] In-App Navigated to:', url)
         if (url.includes(':8888/callback')) {
           setTimeout(() => {
-            if (!authWin.isDestroyed()) authWin.close()
+            if (authWin && !authWin.isDestroyed()) authWin.close()
           }, 1500)
         }
       })
       authWin.webContents.on('did-fail-load', (_, code, desc, url) => {
         console.log('[SpotifyAuth] Failed to load:', desc, url)
       })
-      authWin.on('closed', () => {
-        cancelAuthCallback()
-      })
     })
+    if (credsWindow && !credsWindow.isDestroyed()) credsWindow.close()
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.reload()
     if (settingsWindow && !settingsWindow.isDestroyed()) settingsWindow.reload()
+    return { success: true, user: result.user }
   } catch (err) {
-    console.warn('Auth canceled or failed:', err.message)
+    console.warn('In-app auth failed:', err.message)
+    return { success: false, error: err.message }
   }
 })
 
 ipcMain.handle('save-and-auth-browser', async (event, id, secret, redirectUri) => {
   saveAppCredentials({ clientId: id, clientSecret: secret, redirectUri })
-  if (credsWindow) credsWindow.close()
   cancelAuthCallback()
   try {
-    await electronAuthCommand((authUrl) => {
+    const result = await electronAuthCommand(async (authUrl) => {
       shell.openExternal(authUrl)
     })
+    if (credsWindow && !credsWindow.isDestroyed()) credsWindow.close()
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.reload()
     if (settingsWindow && !settingsWindow.isDestroyed()) settingsWindow.reload()
+    return { success: true, user: result.user }
   } catch (err) {
-    console.warn('Browser auth canceled or failed:', err.message)
+    console.warn('Browser auth failed:', err.message)
+    return { success: false, error: err.message }
+  }
+})
+
+ipcMain.handle('exchange-spotify-code', async (event, codeOrUrl) => {
+  try {
+    let code = (codeOrUrl || '').trim()
+    if (code.includes('code=')) {
+      const match = code.match(/code=([^&]+)/)
+      if (match) code = decodeURIComponent(match[1])
+    }
+    if (!code) throw new Error('No valid authorization code found in input.')
+    const spotify = createSpotifyClient()
+    const data = await spotify.authorizationCodeGrant(code)
+    const { access_token, refresh_token, expires_in } = data.body
+    saveTokens({
+      accessToken:  access_token,
+      refreshToken: refresh_token,
+      expiresIn:    expires_in,
+    })
+    spotify.setAccessToken(access_token)
+    const me = await spotify.getMe()
+    saveUserInfo({ id: me.body.id, displayName: me.body.display_name })
+    if (credsWindow && !credsWindow.isDestroyed()) credsWindow.close()
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.reload()
+    if (settingsWindow && !settingsWindow.isDestroyed()) settingsWindow.reload()
+    return { success: true, user: me.body.display_name }
+  } catch (err) {
+    return { success: false, error: err.message }
   }
 })
 

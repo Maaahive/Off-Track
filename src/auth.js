@@ -127,7 +127,7 @@ export async function electronAuthCommand(openUrlFn) {
   spotify.setAccessToken(access_token)
   const me = await spotify.getMe()
   saveUserInfo({ id: me.body.id, displayName: me.body.display_name })
-  return true
+  return { success: true, user: me.body.display_name }
 }
 
 let activeCallbackServer = null
@@ -145,26 +145,59 @@ function waitForCallback() {
   cancelAuthCallback()
 
   return new Promise((resolve, reject) => {
+    let resolved = false
     const server = http.createServer((req, res) => {
       try {
         const url = new URL(req.url, 'http://127.0.0.1:8888')
         const code = url.searchParams.get('code')
+        const error = url.searchParams.get('error')
+
+        if (error) {
+          res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' })
+          res.end(`
+            <!DOCTYPE html>
+            <html>
+            <head><title>OffTrack - Connection Error</title></head>
+            <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; padding: 60px 20px; background: #0f0f0f; color: #fff;">
+              <div style="max-width: 480px; margin: 0 auto; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 32px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                <div style="font-size: 40px; margin-bottom: 12px;">⚠️</div>
+                <h2 style="color: #ff5f56; margin: 0 0 12px 0; font-size: 20px;">Spotify Authorization Failed</h2>
+                <p style="color: #ccc; font-size: 14px; line-height: 1.5;">Spotify reported: <strong style="color: #fff;">${error}</strong></p>
+                <div style="background: rgba(255, 95, 86, 0.1); border: 1px solid rgba(255, 95, 86, 0.2); border-radius: 8px; padding: 12px; margin-top: 16px; text-align: left; font-size: 12px; line-height: 1.5; color: #ff9999;">
+                  💡 <strong>Tip for Developers:</strong> If your Spotify App is in <em>Development Mode</em>, make sure your Spotify account email is added under <strong>Settings ➔ User Management</strong> in your Spotify Developer Dashboard.
+                </div>
+              </div>
+            </body>
+            </html>
+          `)
+          resolved = true
+          cancelAuthCallback()
+          reject(new Error(`Spotify returned error: ${error}`))
+          return
+        }
 
         if (code) {
-          res.writeHead(200, { 'Content-Type': 'text/html' })
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
           res.end(`
-            <html><body style="font-family:sans-serif;text-align:center;padding:60px;background:#111;color:#fff;">
-              <h2 style="color:#1db954">MixTake logged in successfully!</h2>
-              <p>You can close this window now.</p>
-            </body></html>
+            <!DOCTYPE html>
+            <html>
+            <head><title>OffTrack - Connected!</title></head>
+            <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; padding: 60px 20px; background: #0f0f0f; color: #fff;">
+              <div style="max-width: 480px; margin: 0 auto; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 32px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                <div style="font-size: 40px; margin-bottom: 12px;">✨</div>
+                <h2 style="color: #1db954; margin: 0 0 12px 0; font-size: 20px;">OffTrack Connected!</h2>
+                <p style="color: #ccc; font-size: 14px; line-height: 1.5;">Spotify authorization was successful.</p>
+                <p style="color: #777; font-size: 12px; margin-top: 16px;">You can close this window and return to OffTrack.</p>
+              </div>
+            </body>
+            </html>
           `)
-          cancelAuthCallback()
+          resolved = true
+          setTimeout(() => cancelAuthCallback(), 1000)
           resolve(code)
         } else {
-          res.writeHead(400)
-          res.end('No code received')
-          cancelAuthCallback()
-          reject(new Error('No auth code received'))
+          res.writeHead(400, { 'Content-Type': 'text/plain' })
+          res.end('No authorization code received from Spotify.')
         }
       } catch (err) {
         cancelAuthCallback()
@@ -175,18 +208,20 @@ function waitForCallback() {
     server.on('error', (err) => {
       console.warn('[SpotifyAuth] Server error:', err.message)
       activeCallbackServer = null
-      reject(err)
+      if (!resolved) reject(err)
     })
 
     activeCallbackServer = server
 
-    server.listen(8888, () => {
-      console.log('[SpotifyAuth] Listening on port 8888 for callback')
+    server.listen(8888, '0.0.0.0', () => {
+      console.log('[SpotifyAuth] Listening on port 8888 for OAuth callback')
     })
 
     setTimeout(() => {
-      cancelAuthCallback()
-      reject(new Error('Auth timed out after 2 minutes'))
+      if (!resolved) {
+        cancelAuthCallback()
+        reject(new Error('Authentication timed out after 2 minutes. Please try again.'))
+      }
     }, 120_000)
   })
 }

@@ -110,6 +110,7 @@ contextBridge.exposeInMainWorld('api', {
   closeCredentialsWindow: () => ipcRenderer.invoke('close-credentials-window'),
   saveSpotifyCreds: (id, secret, redirectUri) => ipcRenderer.invoke('save-spotify-creds', id, secret, redirectUri),
   saveAndAuthBrowser: (id, secret, redirectUri) => ipcRenderer.invoke('save-and-auth-browser', id, secret, redirectUri),
+  exchangeSpotifyCode: (codeOrUrl) => ipcRenderer.invoke('exchange-spotify-code', codeOrUrl),
   getSpotifyCreds: () => ipcRenderer.invoke('get-spotify-creds'),
   isLoggedIn: () => ipcRenderer.invoke('is-logged-in'),
   logoutSpotify: () => ipcRenderer.invoke('logout-spotify'),
