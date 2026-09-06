@@ -550,9 +550,24 @@ ipcMain.handle('close-credentials-window', () => {
   if (credsWindow) credsWindow.close()
 })
 
-ipcMain.handle('is-logged-in', () => isLoggedIn())
-ipcMain.handle('logout-spotify', () => {
+ipcMain.handle('logout-spotify', async () => {
+  try {
+    const spotify = await safeGetSpotifyClient()
+    if (spotify) {
+      await spotify.pause().catch(() => {})
+    }
+  } catch (_) {}
+
+  spotifySyncActive = false
+  if (spotifySyncTimer) {
+    clearTimeout(spotifySyncTimer)
+    spotifySyncTimer = null
+  }
+
   hardReset()
+  playlistCache = null
+  playlistCacheTime = 0
+
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.reload()
   if (settingsWindow && !settingsWindow.isDestroyed()) settingsWindow.reload()
 })
