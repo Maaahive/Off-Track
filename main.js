@@ -72,7 +72,7 @@ function createWindow() {
     resizable: true,
     minWidth: 400,
     minHeight: 250,
-    alwaysOnTop: true,
+    alwaysOnTop: false,
     backgroundColor: '#00000000',
     title: 'OffTrack',
     icon: path.join(__dirname, 'assets', 'icon.png'),
@@ -84,7 +84,6 @@ function createWindow() {
       backgroundThrottling: false, // Prevents background audio stuttering on Windows
     }
   })
-  mainWindow.setAlwaysOnTop(true, 'screen-saver')
 
   mainWindow.on('close', (event) => {
     if (!app.isQuiting) {

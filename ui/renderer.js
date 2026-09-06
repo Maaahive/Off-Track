@@ -2006,14 +2006,14 @@ if (btnSaveSpotifyCreds) {
       return
     }
     
-    btnSaveSpotifyCreds.innerText = 'Authorizing...'
+    btnSaveSpotifyCreds.innerText = 'Connecting in Browser...'
     btnSaveSpotifyCreds.disabled = true
     try {
-      await window.api.saveSpotifyCreds(clientId, clientSecret, redirectUri)
+      await window.api.saveAndAuthBrowser(clientId, clientSecret, redirectUri)
     } finally {
       setTimeout(() => {
         if (btnSaveSpotifyCreds) {
-          btnSaveSpotifyCreds.innerText = 'Connect (In-App)'
+          btnSaveSpotifyCreds.innerText = 'Connect with Spotify'
           btnSaveSpotifyCreds.disabled = false
         }
       }, 3000)
