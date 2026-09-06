@@ -1666,7 +1666,7 @@ const toggleSpotifySyncSetting = document.getElementById('toggle-spotify-sync-se
 async function updateSpotifySyncUI(active) {
   isSpotifySyncing = active;
   if (btnSpotifySync) {
-    btnSpotifySync.innerText = active ? '🟢 Syncing' : '⚪ Sync';
+    btnSpotifySync.innerText = active ? '🟢 Synced' : '⚪ Sync';
     btnSpotifySync.style.color = active ? '#1db954' : 'var(--text-main)';
   }
   if (toggleSpotifySyncSetting) {
@@ -1683,7 +1683,7 @@ if (btnSpotifySync) {
     }
     const targetStatus = !isSpotifySyncing;
     updateSpotifySyncUI(targetStatus);
-    showToast(targetStatus ? '🟢 Syncing to Spotify...' : '⚪ Back to OffTrack');
+    showToast(targetStatus ? '🟢 Synced with Spotify' : '⚪ Back to OffTrack');
     const newStatus = await window.api.toggleSpotifySync(targetStatus);
     updateSpotifySyncUI(newStatus);
   });

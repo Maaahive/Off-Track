@@ -508,7 +508,6 @@ ipcMain.handle('save-and-auth-browser', async (event, id, secret, redirectUri) =
     const result = await electronAuthCommand(async (authUrl) => {
       shell.openExternal(authUrl)
     })
-    if (credsWindow && !credsWindow.isDestroyed()) credsWindow.close()
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.reload()
     if (settingsWindow && !settingsWindow.isDestroyed()) settingsWindow.reload()
     return { success: true, user: result.user }
