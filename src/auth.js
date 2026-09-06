@@ -34,7 +34,7 @@ export async function authCommand() {
   if (isLoggedIn()) {
     const { displayName } = getUserInfo()
     console.log(chalk.green(`\n  [Success] Already logged in as ${chalk.bold(displayName)}`))
-    console.log(chalk.gray('  Run "musync logout" to switch accounts.\n'))
+    console.log(chalk.gray('  Run "offtrack logout" to switch accounts.\n'))
     return
   }
 
@@ -59,7 +59,7 @@ export async function authCommand() {
     'user-read-email',
   ]
 
-  const authURL = spotify.createAuthorizeURL(scopes, 'musync-state')
+  const authURL = spotify.createAuthorizeURL(scopes, 'offtrack-state')
 
   console.log(chalk.bold('\n  🔐 Spotify Login\n'))
   console.log(chalk.gray('  Opening browser for Spotify login...'))
@@ -110,7 +110,7 @@ export async function electronAuthCommand(openUrlFn) {
     'user-modify-playback-state',
     'user-read-currently-playing',
   ]
-  const authURL = spotify.createAuthorizeURL(scopes, 'musync-state')
+  const authURL = spotify.createAuthorizeURL(scopes, 'offtrack-state')
   if (openUrlFn) {
     await openUrlFn(authURL)
   } else if (openBrowser) {
@@ -135,6 +135,9 @@ let activeCallbackServer = null
 export function cancelAuthCallback() {
   if (activeCallbackServer) {
     try {
+      if (typeof activeCallbackServer.closeAllConnections === 'function') {
+        activeCallbackServer.closeAllConnections()
+      }
       activeCallbackServer.close()
     } catch (_) {}
     activeCallbackServer = null
@@ -213,9 +216,14 @@ function waitForCallback() {
 
     activeCallbackServer = server
 
-    server.listen(8888, '0.0.0.0', () => {
-      console.log('[SpotifyAuth] Listening on port 8888 for OAuth callback')
-    })
+    // Set immediate port listen with error handler
+    try {
+      server.listen(8888, '0.0.0.0', () => {
+        console.log('[SpotifyAuth] Listening on port 8888 for OAuth callback')
+      })
+    } catch (err) {
+      if (!resolved) reject(err)
+    }
 
     setTimeout(() => {
       if (!resolved) {
@@ -233,7 +241,7 @@ export async function logoutCommand() {
 
 export async function getAuthenticatedClient() {
   if (!isLoggedIn()) {
-    console.log(chalk.red('\n  [Error] Not logged in. Run: musync auth\n'))
+    console.log(chalk.red('\n  [Error] Not logged in. Run: offtrack auth\n'))
     process.exit(1)
   }
 
@@ -253,7 +261,7 @@ export async function getAuthenticatedClient() {
         expiresIn:    data.body.expires_in,
       })
     } catch (err) {
-      console.log(chalk.red(`\n  [Error] Failed to refresh token: ${err.message}. Please run "musync logout" and "musync auth" again.\n`))
+      console.log(chalk.red(`\n  [Error] Failed to refresh token: ${err.message}. Please run "offtrack logout" and "offtrack auth" again.\n`))
       process.exit(1)
     }
   }

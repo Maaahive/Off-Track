@@ -1,7 +1,7 @@
 import Conf from 'conf'
 
 const config = new Conf({
-  projectName: 'musync',
+  projectName: 'offtrack',
   schema: {
     accessToken:    { type: 'string', default: '' },
     refreshToken:   { type: 'string', default: '' },
@@ -14,6 +14,22 @@ const config = new Conf({
     redirectUri:         { type: 'string', default: 'http://127.0.0.1:8888/callback' },
   }
 })
+
+// Auto-migrate from legacy 'musync' config if exists
+try {
+  if (!config.get('accessToken')) {
+    const legacyConfig = new Conf({ projectName: 'musync' })
+    if (legacyConfig.get('accessToken')) {
+      config.set('accessToken', legacyConfig.get('accessToken'))
+      config.set('refreshToken', legacyConfig.get('refreshToken'))
+      config.set('tokenExpiry', legacyConfig.get('tokenExpiry'))
+      config.set('displayName', legacyConfig.get('displayName'))
+      config.set('spotifyUserId', legacyConfig.get('spotifyUserId'))
+      if (legacyConfig.get('spotifyClientId')) config.set('spotifyClientId', legacyConfig.get('spotifyClientId'))
+      if (legacyConfig.get('spotifyClientSecret')) config.set('spotifyClientSecret', legacyConfig.get('spotifyClientSecret'))
+    }
+  }
+} catch (_) {}
 
 export function getTokens() {
   return {

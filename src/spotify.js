@@ -143,7 +143,7 @@ export async function playCommand(playlistInput, options) {
     spinner.succeed(chalk.green(`  Found ${tracks.length} tracks`))
     if ((urlMatch || playlistInput.startsWith('http')) && tracks.length === 100) {
       console.log(chalk.yellow('\n  [Warning] Notice: Spotify limits public URL previews to 100 tracks.'))
-      console.log(chalk.yellow('  To play the rest of this playlist, you must connect your account by running: ') + chalk.bold.cyan('musync auth\n'))
+      console.log(chalk.yellow('  To play the rest of this playlist, you must connect your account by running: ') + chalk.bold.cyan('offtrack auth\n'))
     }
 
     if (!tracks.length) {
@@ -416,7 +416,7 @@ async function findPlaylistByName(spotify, name) {
 
     if (!matches.length) {
       console.log(chalk.red(`\n  No playlist found matching "${name}"\n`))
-      console.log(chalk.gray('  Run "musync list" to see all your playlists.\n'))
+      console.log(chalk.gray('  Run "offtrack list" to see all your playlists.\n'))
       return null
     }
 
