@@ -550,6 +550,7 @@ ipcMain.handle('close-credentials-window', () => {
   if (credsWindow) credsWindow.close()
 })
 
+ipcMain.handle('is-logged-in', () => isLoggedIn())
 ipcMain.handle('logout-spotify', async () => {
   try {
     const spotify = await safeGetSpotifyClient()
