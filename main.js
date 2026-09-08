@@ -159,11 +159,6 @@ function parseTrackMetadata(youtubeTitle, originalQuery) {
 }
 
 async function playTrack(query) {
-  if (spotifySyncActive) {
-    console.log('[playTrack] Stopping active Spotify sync to play new OffTrack song')
-    await setSpotifySync(false)
-  }
-
   const token = ++currentPlayToken
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('track-loading', query)
@@ -882,10 +877,38 @@ ipcMain.handle('fetch-playlist-url', async (event, url) => {
 // ─── Playback Controls IPC ───────────────────────────────────────────────────
 
 ipcMain.handle('search-song', async (event, query) => {
+  if (spotifySyncActive) {
+    console.log(`[SpotifySync] Searching and playing on Spotify: "${query}"`)
+    const spotify = await safeGetSpotifyClient()
+    if (spotify) {
+      try {
+        const searchRes = await spotify.searchTracks(query, { limit: 5 })
+        if (searchRes && searchRes.body && searchRes.body.tracks && searchRes.body.tracks.items.length > 0) {
+          const item = searchRes.body.tracks.items[0]
+          const devRes = await spotify.getMyDevices()
+          const devices = (devRes && devRes.body && devRes.body.devices) || []
+          const targetDevice = devices.find(d => d.is_active) || devices[0]
+          
+          const playOpts = { uris: [item.uri] }
+          if (targetDevice) playOpts.device_id = targetDevice.id
+          await spotify.play(playOpts)
+          
+          setTimeout(pollSpotifyPlayback, 300)
+          return { success: true, fromSpotify: true }
+        } else {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('toast', `⚠️ Not found on Spotify, searching YouTube...`)
+          }
+        }
+      } catch (err) {
+        console.warn('[SpotifySync] Search on Spotify error:', err.message)
+      }
+    }
+  }
+
   if (currentTrack && (!playHistory.length || playHistory[playHistory.length - 1] !== currentTrack.query)) {
     playHistory.push(currentTrack.query)
   }
-  // Keep current song playing seamlessly until the new stream is fetched
   playTrack(query)
   return { success: true }
 })

@@ -1064,11 +1064,12 @@ if (window) window.addEventListener('keydown', (e) => {
 let pendingSearchQuery = null;
 
 function executePlayNow(query) {
-  if (isSpotifySyncing) {
-    updateSpotifySyncUI(false);
-  }
   startSearchTimer(query);
-  showToast(`🔍 Searching: "${query}"...`);
+  if (isSpotifySyncing) {
+    showToast(`🔍 Searching Spotify: "${query}"...`);
+  } else {
+    showToast(`🔍 Searching: "${query}"...`);
+  }
   window.api.searchSong(query);
 }
 
