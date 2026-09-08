@@ -1681,11 +1681,28 @@ if (btnSpotifySync) {
       window.api.openCredentialsWindow();
       return;
     }
+
     const targetStatus = !isSpotifySyncing;
-    updateSpotifySyncUI(targetStatus);
-    showToast(targetStatus ? '🟢 Synced with Spotify' : '⚪ Back to OffTrack');
-    const newStatus = await window.api.toggleSpotifySync(targetStatus);
-    updateSpotifySyncUI(newStatus);
+    if (targetStatus) {
+      // 1. Show loading state while communicating with Spotify
+      btnSpotifySync.innerText = '⏳ Syncing...';
+      btnSpotifySync.style.color = '#ffaa00';
+      showToast('⏳ Connecting to Spotify...');
+
+      const res = await window.api.toggleSpotifySync(true);
+      if (res && res.success) {
+        updateSpotifySyncUI(true);
+        showToast('🟢 Synced with Spotify');
+      } else {
+        updateSpotifySyncUI(false);
+        showToast(res?.message || '⚠️ Could not connect to Spotify.');
+      }
+    } else {
+      // 2. Unsyncing: immediately switch back to OffTrack
+      updateSpotifySyncUI(false);
+      showToast('⚪ Back to OffTrack');
+      await window.api.toggleSpotifySync(false);
+    }
   });
 }
 
@@ -1697,8 +1714,22 @@ if (toggleSpotifySyncSetting) {
       window.api.openCredentialsWindow();
       return;
     }
-    const newStatus = await window.api.toggleSpotifySync(e.target.checked);
-    updateSpotifySyncUI(newStatus);
+
+    if (e.target.checked) {
+      showToast('⏳ Connecting to Spotify...');
+      const res = await window.api.toggleSpotifySync(true);
+      if (res && res.success) {
+        updateSpotifySyncUI(true);
+        showToast('🟢 Synced with Spotify');
+      } else {
+        updateSpotifySyncUI(false);
+        showToast(res?.message || '⚠️ Could not connect to Spotify.');
+      }
+    } else {
+      updateSpotifySyncUI(false);
+      showToast('⚪ Back to OffTrack');
+      await window.api.toggleSpotifySync(false);
+    }
   });
 }
 

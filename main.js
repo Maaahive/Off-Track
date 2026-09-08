@@ -1082,76 +1082,101 @@ async function pollSpotifyPlayback() {
 }
 
 async function setSpotifySync(enabled) {
-  spotifySyncActive = enabled
-  if (spotifySyncTimer) {
-    clearTimeout(spotifySyncTimer)
-    spotifySyncTimer = null
-  }
-
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('spotify-sync-status-changed', enabled)
-  }
-
   if (enabled) {
-    // 1. Immediately pause local audio so there is no audio overlap
+    if (!isLoggedIn()) {
+      return { success: false, reason: 'not_logged_in', message: 'Please connect Spotify in Settings first.' }
+    }
+
+    const spotify = await safeGetSpotifyClient()
+    if (!spotify) {
+      return { success: false, reason: 'no_client', message: 'Unable to connect to Spotify client.' }
+    }
+
+    // 1. Check for open Spotify devices
+    let targetDevice = null
+    try {
+      const devRes = await spotify.getMyDevices()
+      const devices = (devRes && devRes.body && devRes.body.devices) || []
+      targetDevice = devices.find(d => d.is_active) || devices[0]
+      if (!targetDevice) {
+        return {
+          success: false,
+          reason: 'no_device',
+          message: 'No open Spotify app found. Please open Spotify on your PC or phone first!'
+        }
+      }
+    } catch (err) {
+      return { success: false, reason: 'device_check_failed', message: err.message }
+    }
+
+    // 2. Enable sync and pause local player
+    spotifySyncActive = true
+    if (spotifySyncTimer) {
+      clearTimeout(spotifySyncTimer)
+      spotifySyncTimer = null
+    }
+
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('native-audio-cmd-pause')
+      mainWindow.webContents.send('spotify-sync-status-changed', true)
     }
     isNativeAudioPlaying = false
 
-    // 2. Start polling in background
     scheduleNextSpotifyPoll()
 
-    // 3. Replicate/handoff playback to Spotify in background (non-blocking)
-    if (currentTrack && isLoggedIn()) {
-      (async () => {
-        try {
-          const spotify = await safeGetSpotifyClient()
-          if (spotify) {
-            let spotifyQuery = ''
-            if (currentTrack.artist && currentTrack.artist.toLowerCase() !== 'youtube') {
-              spotifyQuery = `${currentTrack.title} ${currentTrack.artist}`
-            } else if (currentTrack.query) {
-              spotifyQuery = currentTrack.query.replace(/\|DURATION:\d+/, '').trim()
-            } else {
-              spotifyQuery = currentTrack.title
-            }
-
-            console.log(`[SpotifySync] Searching Spotify for handoff: "${spotifyQuery}"`)
-            const searchRes = await spotify.searchTracks(spotifyQuery, { limit: 5 })
-            if (searchRes && searchRes.body && searchRes.body.tracks && searchRes.body.tracks.items.length > 0) {
-              const item = searchRes.body.tracks.items[0]
-              const positionMs = Math.floor(currentPlaybackSeconds * 1000)
-              const artistNames = item.artists ? item.artists.map(a => a.name).join(', ') : 'Unknown'
-              console.log(`[SpotifySync] Transferring playback to Spotify: "${item.name}" by ${artistNames} at ${positionMs}ms`)
-              
-              const devRes = await spotify.getMyDevices()
-              const devices = (devRes && devRes.body && devRes.body.devices) || []
-              const targetDevice = devices.find(d => d.is_active) || devices[0]
-              
-              const playOpts = {
-                uris: [item.uri],
-                position_ms: positionMs
-              }
-              if (targetDevice) {
-                playOpts.device_id = targetDevice.id
-              }
-              await spotify.play(playOpts)
-              // Immediately poll Spotify to sync state
-              pollSpotifyPlayback()
-            } else {
-              console.warn(`[SpotifySync] No matching track found on Spotify for "${spotifyQuery}"`)
-            }
-          }
-        } catch (err) {
-          console.warn('[SpotifySync] Could not handoff song to Spotify:', err.message)
+    // 3. Replicate/handoff playback to Spotify with explicit device_id
+    if (currentTrack) {
+      try {
+        let spotifyQuery = ''
+        if (currentTrack.artist && currentTrack.artist.toLowerCase() !== 'youtube') {
+          spotifyQuery = `${currentTrack.title} ${currentTrack.artist}`
+        } else if (currentTrack.query) {
+          spotifyQuery = currentTrack.query.replace(/\|DURATION:\d+/, '').trim()
+        } else {
+          spotifyQuery = currentTrack.title
         }
-      })()
+
+        console.log(`[SpotifySync] Searching Spotify for handoff: "${spotifyQuery}"`)
+        const searchRes = await spotify.searchTracks(spotifyQuery, { limit: 5 })
+        if (searchRes && searchRes.body && searchRes.body.tracks && searchRes.body.tracks.items.length > 0) {
+          const item = searchRes.body.tracks.items[0]
+          const positionMs = Math.floor(currentPlaybackSeconds * 1000)
+          const artistNames = item.artists ? item.artists.map(a => a.name).join(', ') : 'Unknown'
+          console.log(`[SpotifySync] Transferring playback to Spotify: "${item.name}" by ${artistNames} on ${targetDevice.name} at ${positionMs}ms`)
+          
+          await spotify.play({
+            device_id: targetDevice.id,
+            uris: [item.uri],
+            position_ms: positionMs
+          })
+          pollSpotifyPlayback()
+        } else {
+          // Play current track on target device
+          await spotify.play({ device_id: targetDevice.id })
+          pollSpotifyPlayback()
+        }
+      } catch (err) {
+        console.warn('[SpotifySync] Could not handoff song to Spotify:', err.message)
+      }
+    } else {
+      try {
+        await spotify.play({ device_id: targetDevice.id })
+        pollSpotifyPlayback()
+      } catch (_) {}
     }
+
+    return { success: true, active: true }
   } else {
     // 1. Unsyncing: IMMEDIATELY resume OffTrack playback with ZERO lag!
-    let resumeSec = lastSpotifyProgressSec || currentPlaybackSeconds
+    spotifySyncActive = false
+    if (spotifySyncTimer) {
+      clearTimeout(spotifySyncTimer)
+      spotifySyncTimer = null
+    }
+
     if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('spotify-sync-status-changed', false)
+      let resumeSec = lastSpotifyProgressSec || currentPlaybackSeconds
       if (currentTrack && currentTrack.durationSeconds > 0) {
         resumeSec = Math.min(resumeSec, currentTrack.durationSeconds - 1)
       }
@@ -1181,12 +1206,13 @@ async function setSpotifySync(enabled) {
         }
       })()
     }
+
+    return { success: true, active: false }
   }
 }
 
 ipcMain.handle('toggle-spotify-sync', async (event, enable) => {
-  await setSpotifySync(enable)
-  return spotifySyncActive
+  return await setSpotifySync(enable)
 })
 
 ipcMain.handle('get-spotify-sync-status', () => spotifySyncActive)
