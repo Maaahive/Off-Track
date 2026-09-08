@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, globalShortcut, dialog, shell, Tray, nativeImage, Menu } from 'electron'
+import { spawn } from 'child_process'
 import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
@@ -1081,6 +1082,63 @@ async function pollSpotifyPlayback() {
   }
 }
 
+function launchSpotifySilent() {
+  if (process.platform === 'win32') {
+    const appData = process.env.APPDATA || ''
+    const localAppData = process.env.LOCALAPPDATA || ''
+    const possiblePaths = [
+      path.join(appData, 'Spotify', 'Spotify.exe'),
+      path.join(localAppData, 'Microsoft', 'WindowsApps', 'Spotify.exe'),
+      path.join(localAppData, 'Spotify', 'Spotify.exe'),
+      'C:\\Program Files\\Spotify\\Spotify.exe',
+      'C:\\Program Files (x86)\\Spotify\\Spotify.exe'
+    ]
+    for (const exePath of possiblePaths) {
+      if (fs.existsSync(exePath)) {
+        try {
+          const child = spawn(exePath, ['--minimized'], {
+            detached: true,
+            stdio: 'ignore'
+          })
+          child.unref()
+          console.log(`[SpotifySync] Launched Spotify silently from ${exePath}`)
+          return true
+        } catch (e) {
+          console.warn('[SpotifySync] Spawn error:', e.message)
+        }
+      }
+    }
+    // Fallback: launch via Windows start /min
+    try {
+      const child = spawn('cmd.exe', ['/c', 'start', '/min', 'spotify:'], {
+        detached: true,
+        stdio: 'ignore'
+      })
+      child.unref()
+      return true
+    } catch (_) {}
+  } else if (process.platform === 'darwin') {
+    try {
+      const child = spawn('open', ['-j', '-a', 'Spotify'], {
+        detached: true,
+        stdio: 'ignore'
+      })
+      child.unref()
+      return true
+    } catch (_) {}
+  } else {
+    try {
+      const child = spawn('spotify', ['--minimized'], {
+        detached: true,
+        stdio: 'ignore'
+      })
+      child.unref()
+      return true
+    } catch (_) {}
+  }
+  return false
+}
+
 async function setSpotifySync(enabled) {
   if (enabled) {
     if (!isLoggedIn()) {
@@ -1092,17 +1150,37 @@ async function setSpotifySync(enabled) {
       return { success: false, reason: 'no_client', message: 'Unable to connect to Spotify client.' }
     }
 
-    // 1. Check for open Spotify devices
+    // 1. Check for open Spotify devices (or launch silently in background)
     let targetDevice = null
     try {
-      const devRes = await spotify.getMyDevices()
-      const devices = (devRes && devRes.body && devRes.body.devices) || []
+      let devRes = await spotify.getMyDevices()
+      let devices = (devRes && devRes.body && devRes.body.devices) || []
       targetDevice = devices.find(d => d.is_active) || devices[0]
+
+      if (!targetDevice) {
+        console.log('[SpotifySync] No open Spotify device detected. Launching Spotify silently in background...')
+        launchSpotifySilent()
+
+        // Poll for Spotify background process to connect to Spotify Connect network (up to 3.5s)
+        for (let i = 0; i < 7; i++) {
+          await new Promise(r => setTimeout(r, 500))
+          try {
+            devRes = await spotify.getMyDevices()
+            devices = (devRes && devRes.body && devRes.body.devices) || []
+            targetDevice = devices.find(d => d.is_active) || devices[0]
+            if (targetDevice) {
+              console.log(`[SpotifySync] Spotify background device ready: ${targetDevice.name} (${targetDevice.id})`)
+              break
+            }
+          } catch (_) {}
+        }
+      }
+
       if (!targetDevice) {
         return {
           success: false,
           reason: 'no_device',
-          message: 'No open Spotify app found. Please open Spotify on your PC or phone first!'
+          message: 'Could not connect to Spotify background process. Please open Spotify manually.'
         }
       }
     } catch (err) {
