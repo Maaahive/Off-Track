@@ -1063,14 +1063,22 @@ if (window) window.addEventListener('keydown', (e) => {
 
 let pendingSearchQuery = null;
 
-function executePlayNow(query) {
+async function executePlayNow(query) {
   startSearchTimer(query);
   if (isSpotifySyncing) {
     showToast(`🔍 Searching Spotify: "${query}"...`);
   } else {
     showToast(`🔍 Searching: "${query}"...`);
   }
-  window.api.searchSong(query);
+  try {
+    const res = await window.api.searchSong(query);
+    if (res && res.fromSpotify) {
+      setTimeout(stopSearchTimer, 400);
+    }
+  } catch (err) {
+    stopSearchTimer();
+    showToast(`⚠️ Search error: ${err.message}`);
+  }
 }
 
 if (searchInput) searchInput.addEventListener('keydown', async (e) => {
@@ -1152,10 +1160,12 @@ if (btnChoiceClose) {
 }
 
 let searchTimerInterval = null;
+let searchSafetyTimeout = null;
 let searchStartTime = 0;
 
 function startSearchTimer(query) {
   if (searchTimerInterval) clearInterval(searchTimerInterval);
+  if (searchSafetyTimeout) clearTimeout(searchSafetyTimeout);
   searchStartTime = Date.now();
   
   const titleEl = document.getElementById('track-title');
@@ -1182,12 +1192,24 @@ function startSearchTimer(query) {
   };
   updateTimer();
   searchTimerInterval = setInterval(updateTimer, 100);
+
+  // Safety fallback if search hangs
+  searchSafetyTimeout = setTimeout(() => {
+    stopSearchTimer();
+    if (!isPlaying && artistEl) {
+      artistEl.innerText = 'Search timed out. Try again.';
+    }
+  }, 14000);
 }
 
 function stopSearchTimer() {
   if (searchTimerInterval) {
     clearInterval(searchTimerInterval);
     searchTimerInterval = null;
+  }
+  if (searchSafetyTimeout) {
+    clearTimeout(searchSafetyTimeout);
+    searchSafetyTimeout = null;
   }
   const progressLine = document.getElementById('progress-fill') || document.querySelector('.progress');
   if (progressLine) progressLine.classList.remove('is-searching');
@@ -1749,11 +1771,13 @@ if (window.api && window.api.onSpotifySyncStatusChanged) {
 if (window.api && window.api.onSpotifySyncUpdate) {
   window.api.onSpotifySyncUpdate((_, track) => {
     if (!isSpotifySyncing) return;
+    stopSearchTimer();
     const titleEl = document.getElementById('track-title');
-    const artistEl = document.getElementById('artist-name');
+    const artistEl = document.getElementById('artist-name') || document.getElementById('track-artist');
     const elapsedEl = document.querySelector('.time-elapsed');
     const totalEl = document.querySelector('.time-total');
     const playBtn = document.getElementById('btn-play');
+    const appWrapper = document.querySelector('.app-wrapper');
 
     if (titleEl && track.title) titleEl.innerText = track.title;
     if (artistEl && track.artist) artistEl.innerText = track.artist;
@@ -1778,16 +1802,16 @@ if (window.api && window.api.onSpotifySyncUpdate) {
 
     if (track.isPlaying) {
       isPlaying = true;
-      if (appWrapperEl) {
-        appWrapperEl.classList.add('is-playing');
-        appWrapperEl.classList.remove('is-paused');
+      if (appWrapper) {
+        appWrapper.classList.add('is-playing');
+        appWrapper.classList.remove('is-paused');
       }
       if (playBtn) playBtn.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>';
     } else {
       isPlaying = false;
-      if (appWrapperEl) {
-        appWrapperEl.classList.remove('is-playing');
-        appWrapperEl.classList.add('is-paused');
+      if (appWrapper) {
+        appWrapper.classList.remove('is-playing');
+        appWrapper.classList.add('is-paused');
       }
       if (playBtn) playBtn.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
     }

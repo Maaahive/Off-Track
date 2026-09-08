@@ -55,7 +55,10 @@ export async function getStreamData(query) {
     if (ffmpegInstaller && ffmpegInstaller.path && fs.existsSync(ffmpegInstaller.path)) {
       dlpArgs.push('--ffmpeg-location', ffmpegInstaller.path)
     }
-    const output = await dlp.execPromise(dlpArgs)
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Search timed out after 12s. Check your connection.')), 12000)
+    )
+    const output = await Promise.race([dlp.execPromise(dlpArgs), timeoutPromise])
     const lines = output.trim().split('\n').filter(l => l.includes('|||'))
     if (lines.length === 0) {
       throw new Error('No stream found matching criteria')
