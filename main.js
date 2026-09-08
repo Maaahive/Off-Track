@@ -13,6 +13,21 @@ const __dirname = path.dirname(__filename)
 
 app.setName('OffTrack')
 
+// Enforce single instance to prevent duplicate processes from corrupting/locking disk cache
+const gotTheLock = app.requestSingleInstanceLock()
+if (!gotTheLock) {
+  app.quit()
+  process.exit(0)
+}
+
+app.on('second-instance', () => {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.show()
+    mainWindow.focus()
+  }
+})
+
 // Optimize Chromium audio streaming & smooth playback
 app.commandLine.appendSwitch('disable-gpu-shader-disk-cache')
 app.commandLine.appendSwitch('disable-gpu-process-crash-limit')
