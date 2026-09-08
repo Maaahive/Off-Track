@@ -14,11 +14,17 @@ let analyserNode = null;
 function connectAnalyser(howl) {
   try {
     if (!audioCtx) {
-      audioCtx = howl._audioCtx || (howl._sounds[0] && howl._sounds[0]._node && howl._sounds[0]._node.context);
+      audioCtx =
+        howl._audioCtx ||
+        (howl._sounds[0] &&
+          howl._sounds[0]._node &&
+          howl._sounds[0]._node.context);
     }
     if (!audioCtx) return;
     if (analyserNode) {
-      try { analyserNode.disconnect(); } catch (_) {}
+      try {
+        analyserNode.disconnect();
+      } catch (_) {}
     }
     analyserNode = audioCtx.createAnalyser();
     analyserNode.fftSize = 256;
@@ -92,7 +98,9 @@ export const usePlayerStore = create((set, get) => ({
     const id = clientId || get().clientId;
     if (!id) return { error: "No client ID" };
     try {
-      const r = await fetch(`${API}/spotify/auth-url?clientId=${encodeURIComponent(id)}`);
+      const r = await fetch(
+        `${API}/spotify/auth-url?clientId=${encodeURIComponent(id)}`,
+      );
       const { url } = await r.json();
       if (window.electronAPI?.openSpotifyAuth) {
         window.electronAPI.openSpotifyAuth(url);
@@ -106,7 +114,9 @@ export const usePlayerStore = create((set, get) => ({
   },
 
   logout: async () => {
-    try { await fetch(`${API}/spotify/logout`); } catch (_) {}
+    try {
+      await fetch(`${API}/spotify/logout`);
+    } catch (_) {}
     set({ isAuthenticated: false, user: null });
   },
 
@@ -121,7 +131,9 @@ export const usePlayerStore = create((set, get) => ({
 
   fetchPublicPlaylist: async (idOrUrl) => {
     try {
-      const r = await fetch(`${API}/spotify/public-playlist?url=${encodeURIComponent(idOrUrl)}`);
+      const r = await fetch(
+        `${API}/spotify/public-playlist?url=${encodeURIComponent(idOrUrl)}`,
+      );
       return await r.json();
     } catch (_) {
       return null;
@@ -130,7 +142,9 @@ export const usePlayerStore = create((set, get) => ({
 
   resolveUrl: async (url) => {
     try {
-      const r = await fetch(`${API}/spotify/resolve?url=${encodeURIComponent(url)}`);
+      const r = await fetch(
+        `${API}/spotify/resolve?url=${encodeURIComponent(url)}`,
+      );
       return await r.json();
     } catch (_) {
       return null;
@@ -169,7 +183,9 @@ export const usePlayerStore = create((set, get) => ({
     if (!q.trim()) return [];
     try {
       if (get().isAuthenticated) {
-        const r = await fetch(`${API}/spotify/search?q=${encodeURIComponent(q)}`);
+        const r = await fetch(
+          `${API}/spotify/search?q=${encodeURIComponent(q)}`,
+        );
         const data = await r.json();
         if (data.tracks?.items?.length) return data.tracks.items;
       }
@@ -185,9 +201,20 @@ export const usePlayerStore = create((set, get) => ({
   // Set entire queue and start from index
   loadQueue: (tracks, startIndex = 0) => {
     if (!tracks || tracks.length === 0) return;
-    if (currentHowl) { currentHowl.unload(); currentHowl = null; }
-    if (nextHowl) { nextHowl.unload(); nextHowl = null; }
-    set({ queue: tracks, queueIndex: startIndex, isPlaying: false, position: 0 });
+    if (currentHowl) {
+      currentHowl.unload();
+      currentHowl = null;
+    }
+    if (nextHowl) {
+      nextHowl.unload();
+      nextHowl = null;
+    }
+    set({
+      queue: tracks,
+      queueIndex: startIndex,
+      isPlaying: false,
+      position: 0,
+    });
     get().playIndex(startIndex);
   },
 
@@ -196,16 +223,28 @@ export const usePlayerStore = create((set, get) => ({
     const { queue } = get();
     if (index < 0 || index >= queue.length) return;
     const track = queue[index];
-    set({ queueIndex: index, currentTrack: track, isLoading: true, loadError: null, position: 0, duration: 0 });
+    set({
+      queueIndex: index,
+      currentTrack: track,
+      isLoading: true,
+      loadError: null,
+      position: 0,
+      duration: 0,
+    });
 
     try {
-      const artist = track.artists?.map(a => a.name).join(" ") || "";
+      const artist = track.artists?.map((a) => a.name).join(" ") || "";
       const query = `${artist} ${track.name}`.trim();
-      const r = await fetch(`${API}/ytdlp/url?query=${encodeURIComponent(query)}`);
+      const r = await fetch(
+        `${API}/ytdlp/url?query=${encodeURIComponent(query)}`,
+      );
       if (!r.ok) throw new Error("Audio extraction failed for: " + track.name);
       const { url } = await r.json();
 
-      if (currentHowl) { currentHowl.unload(); currentHowl = null; }
+      if (currentHowl) {
+        currentHowl.unload();
+        currentHowl = null;
+      }
 
       const { Howl } = await import("howler");
       const howl = new Howl({
@@ -228,7 +267,10 @@ export const usePlayerStore = create((set, get) => ({
           get().playNext();
         },
         onloaderror: (_, err) => {
-          set({ isLoading: false, loadError: "Stream error, skipping to next..." });
+          set({
+            isLoading: false,
+            loadError: "Stream error, skipping to next...",
+          });
           setTimeout(() => get().playNext(), 1500);
         },
       });
@@ -247,15 +289,20 @@ export const usePlayerStore = create((set, get) => ({
     if (nextIndex >= queue.length) return;
 
     const track = queue[nextIndex];
-    const artist = track.artists?.map(a => a.name).join(" ") || "";
+    const artist = track.artists?.map((a) => a.name).join(" ") || "";
     const query = `${artist} ${track.name}`.trim();
 
     try {
-      const r = await fetch(`${API}/ytdlp/url?query=${encodeURIComponent(query)}`);
+      const r = await fetch(
+        `${API}/ytdlp/url?query=${encodeURIComponent(query)}`,
+      );
       if (!r.ok) return;
       const { url } = await r.json();
 
-      if (nextHowl) { nextHowl.unload(); nextHowl = null; }
+      if (nextHowl) {
+        nextHowl.unload();
+        nextHowl = null;
+      }
       const { Howl } = await import("howler");
       nextHowl = new Howl({
         src: [url],
@@ -279,7 +326,10 @@ export const usePlayerStore = create((set, get) => ({
     }
 
     if (nextHowl && nextHowl.state() !== "unloaded") {
-      if (currentHowl) { currentHowl.unload(); currentHowl = null; }
+      if (currentHowl) {
+        currentHowl.unload();
+        currentHowl = null;
+      }
       const track = queue[nextIndex];
       set({
         queueIndex: nextIndex,
@@ -357,9 +407,12 @@ export const usePlayerStore = create((set, get) => ({
   },
 
   // UI toggles
-  setShowPlaylist: (v) => set({ showPlaylist: v, showSettings: false, showBackgroundPanel: false }),
-  setShowSettings: (v) => set({ showSettings: v, showPlaylist: false, showBackgroundPanel: false }),
-  setShowBackgroundPanel: (v) => set({ showBackgroundPanel: v, showPlaylist: false, showSettings: false }),
+  setShowPlaylist: (v) =>
+    set({ showPlaylist: v, showSettings: false, showBackgroundPanel: false }),
+  setShowSettings: (v) =>
+    set({ showSettings: v, showPlaylist: false, showBackgroundPanel: false }),
+  setShowBackgroundPanel: (v) =>
+    set({ showBackgroundPanel: v, showPlaylist: false, showSettings: false }),
   setVisualizerMode: (m) => set({ visualizerMode: m }),
 
   // Background & appearance
