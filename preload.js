@@ -3,7 +3,6 @@ const { contextBridge, ipcRenderer } = require('electron')
 // ─── Windows Native In-Window Audio Engine ───────────────────────────────────
 // Built-in HTML5 Audio player running directly inside Chromium
 let nativeAudio = null
-let hasTriggeredEnded = false
 
 function getAudio() {
   if (!nativeAudio) {
@@ -12,17 +11,10 @@ function getAudio() {
 
     nativeAudio.addEventListener('timeupdate', () => {
       const t = nativeAudio.currentTime
-      const d = nativeAudio.duration
       // Dispatch directly in-process (zero IPC latency) for lyrics sync
       window.dispatchEvent(new CustomEvent('native-audio-timeupdate', { detail: t }))
       // Also send to main process for progress bar / other tracking
       ipcRenderer.send('native-audio-time', t)
-
-      // Reliable end detection for streaming audio
-      if (d > 0 && t >= d - 0.5 && !hasTriggeredEnded) {
-        hasTriggeredEnded = true
-        ipcRenderer.send('native-audio-ended')
-      }
     })
 
     nativeAudio.addEventListener('play', () => {
@@ -30,20 +22,12 @@ function getAudio() {
     })
 
     nativeAudio.addEventListener('pause', () => {
-      // If paused right at the end of the track, trigger natural ended
-      if (nativeAudio.duration > 0 && nativeAudio.currentTime >= nativeAudio.duration - 0.8 && !hasTriggeredEnded) {
-        hasTriggeredEnded = true
-        ipcRenderer.send('native-audio-ended')
-        return
-      }
       ipcRenderer.send('native-audio-state', true)
     })
 
     nativeAudio.addEventListener('ended', () => {
-      if (!hasTriggeredEnded) {
-        hasTriggeredEnded = true
-        ipcRenderer.send('native-audio-ended')
-      }
+      console.log('[NativeAudio] Track finished naturally, advancing queue...')
+      ipcRenderer.send('native-audio-ended')
     })
 
     nativeAudio.addEventListener('error', (e) => {
@@ -56,12 +40,8 @@ function getAudio() {
 
 // Commands from main.js to the audio element
 ipcRenderer.on('native-audio-cmd-play', (_, { streamUrl, startTime }) => {
-  hasTriggeredEnded = false
   const audio = getAudio()
-  if (audio.src !== streamUrl) {
-    audio.pause()
-    audio.src = streamUrl
-  }
+  audio.src = streamUrl
   if (typeof startTime === 'number' && startTime > 0) {
     try {
       audio.currentTime = startTime
@@ -91,9 +71,6 @@ ipcRenderer.on('native-audio-cmd-toggle-pause', () => {
 
 ipcRenderer.on('native-audio-cmd-seek', (_, seconds) => {
   const audio = getAudio()
-  if (seconds < (audio.duration || 100) - 1.5) {
-    hasTriggeredEnded = false
-  }
   audio.currentTime = seconds
 })
 
@@ -178,6 +155,7 @@ contextBridge.exposeInMainWorld('api', {
   onPlaybackStopped: (callback) => ipcRenderer.on('playback-stopped', callback),
   onPlaybackStateUpdate: (callback) => ipcRenderer.on('playback-state-update', callback),
   onPlaylistsUpdated: (callback) => ipcRenderer.on('playlists-updated', callback),
+  onQueueUpdated: (callback) => ipcRenderer.on('queue-updated', (_, q) => callback(q)),
   openGifWindow: () => ipcRenderer.invoke('open-gif-window'),
   selectGif: (gifUrl, gifName) => ipcRenderer.invoke('select-gif', gifUrl, gifName),
   onGifSelected: (callback) => ipcRenderer.on('gif-selected', callback),

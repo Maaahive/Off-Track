@@ -2260,6 +2260,12 @@ window.api.onPlaybackStopped(() => {
   document.querySelector('.time-elapsed').innerText = '0:00'
 })
 
+if (window.api && window.api.onQueueUpdated) {
+  window.api.onQueueUpdated(() => {
+    renderQueue()
+  })
+}
+
 function updatePlayIcon() {
   const icon = document.getElementById('icon-play')
   if (!icon) return

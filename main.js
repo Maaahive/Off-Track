@@ -321,10 +321,17 @@ function handleNextSong() {
   if (currentTrack) playHistory.push(currentTrack.query)
   if (playQueue.length > 0) {
     const nextQuery = playQueue.shift()
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('queue-updated', playQueue)
+    }
     playTrack(nextQuery)
   } else {
     currentTrack = null
     console.log('[handleNextSong] Queue empty, playback finished.')
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('playback-stopped')
+      mainWindow.webContents.send('queue-updated', playQueue)
+    }
   }
 }
 
@@ -332,6 +339,9 @@ function handlePrevSong() {
   if (playHistory.length > 0) {
     if (currentTrack) playQueue.unshift(currentTrack.query)
     const prevQuery = playHistory.pop()
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('queue-updated', playQueue)
+    }
     playTrack(prevQuery)
   } else if (currentTrack && mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('native-audio-cmd-seek', 0)
@@ -358,8 +368,10 @@ ipcMain.on('native-audio-state', (_, isPaused) => {
 
 ipcMain.on('native-audio-ended', () => {
   isNativeAudioPlaying = false
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('playback-stopped')
+  if (!isLooping && playQueue.length === 0) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('playback-stopped')
+    }
   }
   if (!app.isQuiting) {
     handleNextSong()
@@ -1064,8 +1076,11 @@ ipcMain.handle('search-song', async (event, query) => {
 })
 
 ipcMain.handle('add-queue', (event, query) => {
-  playQueue.unshift(query)
+  playQueue.push(query)
   preloadNext()
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('queue-updated', playQueue)
+  }
   return playQueue
 })
 
@@ -1074,6 +1089,9 @@ ipcMain.handle('get-queue', () => playQueue)
 ipcMain.handle('clear-queue', () => {
   playQueue = []
   preloadedNextTrack = null
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('queue-updated', playQueue)
+  }
   return playQueue
 })
 
@@ -1082,6 +1100,9 @@ ipcMain.handle('reorder-queue', (e, oldIndex, newIndex) => {
     const [item] = playQueue.splice(oldIndex, 1)
     playQueue.splice(newIndex, 0, item)
     preloadNext()
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('queue-updated', playQueue)
+    }
   }
   return playQueue
 })
@@ -1089,6 +1110,9 @@ ipcMain.handle('reorder-queue', (e, oldIndex, newIndex) => {
 ipcMain.handle('splice-queue', (e, start, deleteCount) => {
   playQueue.splice(start, deleteCount)
   preloadNext()
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('queue-updated', playQueue)
+  }
   return playQueue
 })
 
@@ -1102,6 +1126,9 @@ ipcMain.handle('set-queue', (event, newQueue) => {
     }
   }
   preloadNext()
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('queue-updated', playQueue)
+  }
   return playQueue
 })
 
@@ -1159,6 +1186,7 @@ ipcMain.handle('toggle-shuffle', () => {
   preloadNext()
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('shuffle-toggled', isShuffling)
+    mainWindow.webContents.send('queue-updated', playQueue)
   }
   return isShuffling
 })
