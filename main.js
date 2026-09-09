@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, globalShortcut, dialog, shell, Tray, nativeImage, Menu } from 'electron'
+import { app, BrowserWindow, screen, ipcMain, globalShortcut, shell, Tray, nativeImage, Menu } from 'electron'
 import { spawn } from 'child_process'
 import path from 'path'
 import fs from 'fs'
@@ -25,6 +25,7 @@ app.on('second-instance', () => {
     if (mainWindow.isMinimized()) mainWindow.restore()
     mainWindow.show()
     mainWindow.focus()
+    mainWindow.reload()
   }
 })
 
@@ -64,7 +65,7 @@ const customFetch = (url, options = {}) => {
 }
 
 const { getTracks } = spotifyUrlInfo(customFetch)
-import { isLoggedIn, getTokens, isTokenExpired, saveTokens, saveAppCredentials, getAppCredentials, hardReset } from './src/config.js'
+import { isLoggedIn, getTokens, isTokenExpired, saveTokens, saveAppCredentials, getAppCredentials, hardReset, getSavedBackground, saveBackground } from './src/config.js'
 import { getSpotifyClient, electronAuthCommand, cancelAuthCallback } from './src/auth.js'
 import { getStreamData } from './src/youtube.js'
 
@@ -101,13 +102,85 @@ function createWindow() {
     }
   })
 
-  mainWindow.on('close', (event) => {
-    if (!app.isQuiting) {
-      event.preventDefault()
-      mainWindow.hide()
-    }
-    return false
+  mainWindow.on('closed', () => {
+    mainWindow = null
+    app.isQuiting = true
+    app.quit()
   })
+
+  // ─── Screen Bounds Clamping (Prevents Window From Moving Off-Screen) ─────────
+  function clampWindowToScreen() {
+    if (!mainWindow || mainWindow.isDestroyed() || mainWindow.isMinimized() || mainWindow.isMaximized() || mainWindow.isFullScreen()) return
+    const bounds = mainWindow.getBounds()
+    const display = screen.getDisplayMatching(bounds)
+    if (!display) return
+
+    const { workArea } = display
+    let { x, y, width, height } = bounds
+    let changed = false
+
+    if (width > workArea.width) {
+      width = workArea.width
+      changed = true
+    }
+    if (height > workArea.height) {
+      height = workArea.height
+      changed = true
+    }
+
+    if (x < workArea.x) {
+      x = workArea.x
+      changed = true
+    } else if (x + width > workArea.x + workArea.width) {
+      x = workArea.x + workArea.width - width
+      changed = true
+    }
+
+    if (y < workArea.y) {
+      y = workArea.y
+      changed = true
+    } else if (y + height > workArea.y + workArea.height) {
+      y = workArea.y + workArea.height - height
+      changed = true
+    }
+
+    if (changed) {
+      mainWindow.setBounds({ x, y, width, height })
+    }
+  }
+
+  mainWindow.on('will-move', (event, newBounds) => {
+    const display = screen.getDisplayMatching(newBounds)
+    if (!display) return
+    const { workArea } = display
+    let { x, y, width, height } = newBounds
+    let clamped = false
+
+    if (x < workArea.x) {
+      x = workArea.x
+      clamped = true
+    } else if (x + width > workArea.x + workArea.width) {
+      x = workArea.x + workArea.width - width
+      clamped = true
+    }
+
+    if (y < workArea.y) {
+      y = workArea.y
+      clamped = true
+    } else if (y + height > workArea.y + workArea.height) {
+      y = workArea.y + workArea.height - height
+      clamped = true
+    }
+
+    if (clamped) {
+      event.preventDefault()
+      mainWindow.setBounds({ x, y, width, height })
+    }
+  })
+
+  mainWindow.on('moved', clampWindowToScreen)
+  mainWindow.on('resize', clampWindowToScreen)
+  mainWindow.on('resized', clampWindowToScreen)
 
   mainWindow.loadFile(path.join(__dirname, 'ui', 'index.html'))
 }
@@ -119,7 +192,6 @@ let playHistory = []
 let isLooping = false
 let isShuffling = false
 let currentTrack = null
-let isManualStop = false
 let currentPlayToken = 0
 let preloadedNextTrack = null
 let preloadToken = 0
@@ -173,7 +245,7 @@ function parseTrackMetadata(youtubeTitle, originalQuery) {
   return { artist, title }
 }
 
-async function playTrack(query) {
+async function playTrack(query, startTimeSeconds = 0) {
   const token = ++currentPlayToken
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('track-loading', query)
@@ -218,12 +290,16 @@ async function playTrack(query) {
       rawTitle: data.title,
     }
 
-    isManualStop = false
-
     // Play stream using built-in HTML5 Audio in the Electron window
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('native-audio-cmd-play', { streamUrl: data.streamUrl })
-      mainWindow.webContents.send('track-started', currentTrack)
+      mainWindow.webContents.send('native-audio-cmd-play', {
+        streamUrl: data.streamUrl,
+        startTime: startTimeSeconds
+      })
+      mainWindow.webContents.send('track-started', {
+        ...currentTrack,
+        initialProgressSeconds: startTimeSeconds
+      })
     }
   } catch (err) {
     if (token !== currentPlayToken) return
@@ -236,13 +312,19 @@ async function playTrack(query) {
 }
 
 function handleNextSong() {
-  console.log(`[handleNextSong] Queue remaining: ${playQueue.length}`)
+  console.log(`[handleNextSong] Queue remaining: ${playQueue.length}, looping: ${isLooping}`)
+  if (isLooping && currentTrack) {
+    // Replay current track
+    playTrack(currentTrack.query)
+    return
+  }
   if (currentTrack) playHistory.push(currentTrack.query)
   if (playQueue.length > 0) {
     const nextQuery = playQueue.shift()
     playTrack(nextQuery)
   } else {
     currentTrack = null
+    console.log('[handleNextSong] Queue empty, playback finished.')
   }
 }
 
@@ -279,7 +361,7 @@ ipcMain.on('native-audio-ended', () => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('playback-stopped')
   }
-  if (!app.isQuiting && !isManualStop) {
+  if (!app.isQuiting) {
     handleNextSong()
   }
 })
@@ -289,6 +371,7 @@ ipcMain.on('native-audio-error', (_, err) => {
     mainWindow.webContents.send('track-error', err)
   }
   setTimeout(handleNextSong, 2000)
+
 })
 
 // ─── App Lifecycle ───────────────────────────────────────────────────────────
@@ -302,9 +385,12 @@ app.whenReady().then(async () => {
         { label: 'Hide OffTrack', click: () => { if (mainWindow) mainWindow.hide() } },
         { type: 'separator' },
         { label: 'Play / Pause', click: () => { if (mainWindow) mainWindow.webContents.send('native-audio-cmd-toggle-pause') } },
-        { label: 'Next Track', click: () => { isManualStop = true; handleNextSong() } },
         { type: 'separator' },
-        { label: 'Quit', click: () => { app.isQuiting = true; app.quit() } },
+        { label: 'Quit', click: async () => {
+          app.isQuiting = true
+          await pauseSpotifyIfActive()
+          app.quit()
+        } },
       ])
       tray.setToolTip('MixTake')
       tray.setContextMenu(contextMenu)
@@ -395,20 +481,62 @@ app.whenReady().then(async () => {
   })
 })
 
-app.on('before-quit', () => {
+async function pauseSpotifyIfActive() {
+  if (spotifySyncActive) {
+    try {
+      const spotify = await safeGetSpotifyClient()
+      if (spotify) {
+        await Promise.race([
+          spotify.pause().catch(() => {}),
+          new Promise(resolve => setTimeout(resolve, 800))
+        ])
+      }
+    } catch (_) {}
+  }
+}
+
+app.on('before-quit', async () => {
   app.isQuiting = true
+  if (spotifySyncTimer) {
+    clearTimeout(spotifySyncTimer)
+    spotifySyncTimer = null
+  }
+  await pauseSpotifyIfActive()
+  if (tray) {
+    try { tray.destroy() } catch (_) {}
+    tray = null
+  }
 })
 
-app.on('window-all-closed', () => {
+app.on('window-all-closed', async () => {
   app.isQuiting = true
+  await pauseSpotifyIfActive()
+  if (tray) {
+    try { tray.destroy() } catch (_) {}
+    tray = null
+  }
   app.quit()
+  process.exit(0)
 })
 
 // ─── IPC Handlers ────────────────────────────────────────────────────────────
 
-ipcMain.handle('close-app', () => {
+ipcMain.handle('close-app', async () => {
   app.isQuiting = true
+  if (spotifySyncTimer) {
+    clearTimeout(spotifySyncTimer)
+    spotifySyncTimer = null
+  }
+  await pauseSpotifyIfActive()
+  if (tray) {
+    try { tray.destroy() } catch (_) {}
+    tray = null
+  }
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.destroy()
+  }
   app.quit()
+  process.exit(0)
 })
 
 ipcMain.handle('minimize-app', () => {
@@ -583,9 +711,10 @@ ipcMain.handle('logout-spotify', async () => {
   if (settingsWindow && !settingsWindow.isDestroyed()) settingsWindow.reload()
 })
 
-let currentBackground = 'backgrounds/Evolving Universe.jpg'
+let currentBackground = getSavedBackground() || 'backgrounds/wallpaper.jpg'
 ipcMain.on('change-background', (event, bgUrl) => {
   currentBackground = bgUrl
+  saveBackground(bgUrl)
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('background-changed', bgUrl)
   }
@@ -593,7 +722,13 @@ ipcMain.on('change-background', (event, bgUrl) => {
     settingsWindow.webContents.send('background-changed', bgUrl)
   }
 })
-ipcMain.handle('get-current-background', () => currentBackground)
+ipcMain.handle('get-current-background', () => getSavedBackground() || currentBackground)
+ipcMain.handle('get-saved-background', () => getSavedBackground() || currentBackground)
+ipcMain.handle('save-background', (event, bgUrl) => {
+  currentBackground = bgUrl
+  saveBackground(bgUrl)
+  return true
+})
 
 // Custom themes
 ipcMain.handle('save-custom-theme', (event, theme) => {
@@ -979,7 +1114,6 @@ ipcMain.handle('next-song', async () => {
       return
     }
   }
-  isManualStop = true
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('native-audio-cmd-stop')
   }
@@ -995,7 +1129,6 @@ ipcMain.handle('prev-song', async () => {
       return
     }
   }
-  isManualStop = true
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('native-audio-cmd-stop')
   }
@@ -1069,6 +1202,7 @@ let spotifySyncActive = false
 let spotifySyncTimer = null
 
 let lastSpotifyProgressSec = 0
+let lastSpotifyTrack = null
 let isSpotifyPolling = false
 
 function scheduleNextSpotifyPoll() {
@@ -1105,9 +1239,11 @@ async function pollSpotifyPlayback() {
         durationSeconds: durationSec,
         durationStr,
         progressSeconds: progressSec,
+        progressMs: res.body.progress_ms || (progressSec * 1000),
         isPlaying,
         fromSpotify: true
       }
+      lastSpotifyTrack = track
 
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('spotify-sync-update', track)
@@ -1146,24 +1282,30 @@ function launchSpotifySilent() {
         }
       }
     }
-    // Fallback: launch via Windows start /min
-    try {
-      const child = spawn('cmd.exe', ['/c', 'start', '/min', 'spotify:'], {
-        detached: true,
-        stdio: 'ignore'
-      })
-      child.unref()
-      return true
-    } catch (_) {}
+    // Desktop client not installed — open Spotify in user's default browser!
+    console.log('[SpotifySync] Spotify desktop app not found. Opening Spotify in browser...')
+    shell.openExternal('https://open.spotify.com')
+    return false
   } else if (process.platform === 'darwin') {
-    try {
-      const child = spawn('open', ['-j', '-a', 'Spotify'], {
-        detached: true,
-        stdio: 'ignore'
-      })
-      child.unref()
-      return true
-    } catch (_) {}
+    const macPaths = [
+      '/Applications/Spotify.app',
+      path.join(process.env.HOME || '', 'Applications/Spotify.app')
+    ]
+    for (const appPath of macPaths) {
+      if (fs.existsSync(appPath)) {
+        try {
+          const child = spawn('open', ['-j', '-a', appPath], {
+            detached: true,
+            stdio: 'ignore'
+          })
+          child.unref()
+          return true
+        } catch (_) {}
+      }
+    }
+    console.log('[SpotifySync] Spotify not found on macOS. Opening in browser...')
+    shell.openExternal('https://open.spotify.com')
+    return false
   } else {
     try {
       const child = spawn('spotify', ['--minimized'], {
@@ -1172,9 +1314,11 @@ function launchSpotifySilent() {
       })
       child.unref()
       return true
-    } catch (_) {}
+    } catch (_) {
+      shell.openExternal('https://open.spotify.com')
+      return false
+    }
   }
-  return false
 }
 
 async function setSpotifySync(enabled) {
@@ -1196,29 +1340,32 @@ async function setSpotifySync(enabled) {
       targetDevice = devices.find(d => d.is_active) || devices[0]
 
       if (!targetDevice) {
-        console.log('[SpotifySync] No open Spotify device detected. Launching Spotify silently in background...')
-        launchSpotifySilent()
+        console.log('[SpotifySync] No open Spotify device detected. Checking Spotify...')
+        const hasDesktop = launchSpotifySilent()
 
-        // Poll for Spotify background process to connect to Spotify Connect network (up to 3.5s)
-        for (let i = 0; i < 7; i++) {
-          await new Promise(r => setTimeout(r, 500))
-          try {
-            devRes = await spotify.getMyDevices()
-            devices = (devRes && devRes.body && devRes.body.devices) || []
-            targetDevice = devices.find(d => d.is_active) || devices[0]
-            if (targetDevice) {
-              console.log(`[SpotifySync] Spotify background device ready: ${targetDevice.name} (${targetDevice.id})`)
-              break
-            }
-          } catch (_) {}
+        if (hasDesktop) {
+          // Poll for Spotify background process to connect to Spotify Connect network (up to 3.5s)
+          for (let i = 0; i < 7; i++) {
+            await new Promise(r => setTimeout(r, 500))
+            try {
+              devRes = await spotify.getMyDevices()
+              devices = (devRes && devRes.body && devRes.body.devices) || []
+              targetDevice = devices.find(d => d.is_active) || devices[0]
+              if (targetDevice) {
+                console.log(`[SpotifySync] Spotify background device ready: ${targetDevice.name} (${targetDevice.id})`)
+                break
+              }
+            } catch (_) {}
+          }
         }
       }
 
       if (!targetDevice) {
+        shell.openExternal('https://open.spotify.com')
         return {
           success: false,
           reason: 'no_device',
-          message: 'Could not connect to Spotify background process. Please open Spotify manually.'
+          message: 'Spotify opened in your browser! Play any song, then click Sync.'
         }
       }
     } catch (err) {
@@ -1283,7 +1430,7 @@ async function setSpotifySync(enabled) {
 
     return { success: true, active: true }
   } else {
-    // 1. Unsyncing: IMMEDIATELY resume OffTrack playback with ZERO lag!
+    // 1. Unsyncing: stop polling and pause Spotify
     spotifySyncActive = false
     if (spotifySyncTimer) {
       clearTimeout(spotifySyncTimer)
@@ -1292,14 +1439,6 @@ async function setSpotifySync(enabled) {
 
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('spotify-sync-status-changed', false)
-      let resumeSec = lastSpotifyProgressSec || currentPlaybackSeconds
-      if (currentTrack && currentTrack.durationSeconds > 0) {
-        resumeSec = Math.min(resumeSec, currentTrack.durationSeconds - 1)
-      }
-      console.log(`[SpotifySync] Instantly resuming OffTrack playback at ${resumeSec}s`)
-      mainWindow.webContents.send('native-audio-cmd-resume', resumeSec)
-      isNativeAudioPlaying = true
-      mainWindow.webContents.send('playback-state-update', false)
     }
 
     // 2. Pause Spotify asynchronously in the background so it never blocks the UI
@@ -1308,19 +1447,41 @@ async function setSpotifySync(enabled) {
         try {
           const spotify = await safeGetSpotifyClient()
           if (spotify) {
-            console.log('[SpotifySync] Pausing Spotify playback in background...')
-            const state = await spotify.getMyCurrentPlaybackState()
+            console.log('[SpotifySync] Pausing Spotify playback in background on unsync...')
+            const state = await spotify.getMyCurrentPlaybackState().catch(() => null)
             if (state && state.body && state.body.is_playing) {
               const opts = state.body.device?.id ? { device_id: state.body.device.id } : {}
-              await spotify.pause(opts)
+              await spotify.pause(opts).catch(() => {})
             } else {
-              await spotify.pause()
+              await spotify.pause().catch(() => {})
             }
           }
         } catch (err) {
           console.warn('[SpotifySync] Could not pause Spotify on unsync:', err.message)
         }
       })()
+    }
+
+    // 3. Auto-search Spotify song on YouTube and resume at exact timestamp!
+    const resumeSec = lastSpotifyProgressSec || currentPlaybackSeconds || 0
+    if (lastSpotifyTrack && lastSpotifyTrack.title && lastSpotifyTrack.title.toLowerCase() !== 'spotify') {
+      const cleanArtist = (lastSpotifyTrack.artist && lastSpotifyTrack.artist.toLowerCase() !== 'spotify')
+        ? lastSpotifyTrack.artist
+        : ''
+      const ytQuery = cleanArtist ? `${lastSpotifyTrack.title} ${cleanArtist}` : lastSpotifyTrack.title
+      console.log(`[SpotifySync] Unsync: Transferring Spotify track to YouTube: "${ytQuery}" at ${resumeSec}s`)
+      playTrack(ytQuery, resumeSec)
+    } else if (currentTrack) {
+      let sec = resumeSec
+      if (currentTrack.durationSeconds > 0) {
+        sec = Math.min(sec, currentTrack.durationSeconds - 1)
+      }
+      console.log(`[SpotifySync] Resuming OffTrack playback at ${sec}s`)
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('native-audio-cmd-resume', sec)
+        isNativeAudioPlaying = true
+        mainWindow.webContents.send('playback-state-update', false)
+      }
     }
 
     return { success: true, active: false }
@@ -1371,4 +1532,138 @@ ipcMain.handle('spotify-remote-seek', async (e, seconds) => {
       mainWindow.webContents.send('spotify-seek-restricted', seconds)
     }
   }
+})
+
+// ─── Synced Lyrics Support (LRCLIB) ───────────────────────────────────────────
+const lyricsCache = new Map()
+
+async function fetchJsonWithTimeout(url, timeoutMs = 6000) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const resp = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'OffTrack-Music-Player/1.0',
+        'Accept': 'application/json'
+      }
+    })
+    return resp
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+function cleanTrackName(str) {
+  if (!str) return ''
+  return str
+    .replace(/\|DURATION:\d+/gi, '')
+    .replace(/\(.*?(official|video|audio|remaster|explicit|lyrics|version|deluxe|bonus|edit).*?\)/gi, '')
+    .replace(/\[.*?(official|video|audio|remaster|explicit|lyrics|version|deluxe|bonus|edit).*?\]/gi, '')
+    .replace(/ft\.?|feat\.?/gi, '')
+    .replace(/- (official|video|audio|remaster|explicit|lyrics|version|deluxe|bonus|edit).*/gi, '')
+    .trim()
+}
+
+async function fetchLyrics(trackInfo) {
+  if (!trackInfo) return { success: false, reason: 'no_track_info' }
+  let rawTitle = trackInfo.title || ''
+  let rawArtist = (trackInfo.artist && trackInfo.artist.toLowerCase() !== 'spotify' && trackInfo.artist.toLowerCase() !== 'youtube')
+    ? trackInfo.artist
+    : ''
+  
+  let cleanTitle = cleanTrackName(rawTitle)
+  let cleanArtist = cleanTrackName(rawArtist)
+
+  // If title contains " - " and artist is empty, split them (e.g. "Artist - Track Title")
+  if (cleanTitle.includes(' - ') && !cleanArtist) {
+    const parts = cleanTitle.split(' - ')
+    cleanArtist = parts[0].trim()
+    cleanTitle = parts.slice(1).join(' - ').trim()
+  }
+
+  const duration = typeof trackInfo.durationSeconds === 'number' ? Math.round(trackInfo.durationSeconds) : null
+  const cacheKey = `${cleanTitle.toLowerCase()}__${cleanArtist.toLowerCase()}`
+  if (lyricsCache.has(cacheKey)) {
+    return { success: true, data: lyricsCache.get(cacheKey) }
+  }
+
+  console.log(`[Lyrics] Searching LRCLIB for: "${cleanTitle}" by "${cleanArtist}"`)
+
+  try {
+    // 1. Try exact match query
+    const params = new URLSearchParams()
+    if (cleanTitle) params.append('track_name', cleanTitle)
+    if (cleanArtist) params.append('artist_name', cleanArtist)
+    if (trackInfo.album) params.append('album_name', cleanTrackName(trackInfo.album))
+    if (duration) params.append('duration', String(duration))
+
+    let resp = await fetchJsonWithTimeout(`https://lrclib.net/api/get?${params.toString()}`, 5000)
+    if (resp.ok) {
+      const data = await resp.json()
+      if (data && (data.syncedLyrics || data.plainLyrics)) {
+        lyricsCache.set(cacheKey, data)
+        return { success: true, data }
+      }
+    }
+
+    // 2. Try with primary artist if multiple artists listed
+    if (cleanArtist && (cleanArtist.includes(',') || cleanArtist.includes('&'))) {
+      const firstArtist = cleanArtist.split(/[,&]/)[0].trim()
+      const p2 = new URLSearchParams()
+      p2.append('track_name', cleanTitle)
+      p2.append('artist_name', firstArtist)
+      let resp2 = await fetchJsonWithTimeout(`https://lrclib.net/api/get?${p2.toString()}`, 5000)
+      if (resp2.ok) {
+        const data = await resp2.json()
+        if (data && (data.syncedLyrics || data.plainLyrics)) {
+          lyricsCache.set(cacheKey, data)
+          return { success: true, data }
+        }
+      }
+    }
+
+    // 3. Fallback to search query
+    const searchQuery = `${cleanTitle} ${cleanArtist}`.trim()
+    if (searchQuery) {
+      const searchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(searchQuery)}`
+      resp = await fetchJsonWithTimeout(searchUrl, 5000)
+      if (resp.ok) {
+        const list = await resp.json()
+        if (Array.isArray(list) && list.length > 0) {
+          const best = list.find(item => item.syncedLyrics) || list[0]
+          lyricsCache.set(cacheKey, best)
+          return { success: true, data: best }
+        }
+      }
+    }
+
+    // 4. Fallback search by title only
+    if (cleanTitle) {
+      const searchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(cleanTitle)}`
+      resp = await fetchJsonWithTimeout(searchUrl, 5000)
+      if (resp.ok) {
+        const list = await resp.json()
+        if (Array.isArray(list) && list.length > 0) {
+          const match = cleanArtist
+            ? list.find(item => item.artistName && cleanArtist.toLowerCase().includes(item.artistName.toLowerCase()) && item.syncedLyrics)
+            : null
+          const best = match || list.find(item => item.syncedLyrics) || list[0]
+          if (best && (best.syncedLyrics || best.plainLyrics)) {
+            lyricsCache.set(cacheKey, best)
+            return { success: true, data: best }
+          }
+        }
+      }
+    }
+
+    return { success: false, reason: 'not_found' }
+  } catch (err) {
+    console.warn('[Lyrics] Fetch error:', err.message)
+    return { success: false, reason: 'fetch_error', message: err.message }
+  }
+}
+
+ipcMain.handle('get-lyrics', async (e, trackInfo) => {
+  return await fetchLyrics(trackInfo)
 })

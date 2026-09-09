@@ -27,7 +27,10 @@
         </div>
       </div>
       <div class="right-icons window-controls" style="display: flex; align-items: center; gap: 5px;">
-        <button class="pill-btn" id="btn-spotify-sync" title="Sync live with official Spotify app" style="font-size: 11px; padding: 3px 7px; border-radius: 12px; background: rgba(255,255,255,0.08); border: 1px solid var(--border-color); color: var(--text-main); display: flex; align-items: center; gap: 4px; cursor: pointer;">
+        <button class="pill-btn" id="btn-lyrics" onclick="window.toggleLyrics && window.toggleLyrics()" title="Toggle Synchronized Lyrics (Ctrl+L)" style="font-size: 11px; padding: 3px 7px; border-radius: 12px; background: rgba(255,255,255,0.08); border: 1px solid var(--border-color); color: var(--text-main); display: flex; align-items: center; gap: 4px; cursor: pointer; -webkit-app-region: no-drag !important; position: relative; z-index: 50;">
+          <span>🎤 Lyrics</span>
+        </button>
+        <button class="pill-btn" id="btn-spotify-sync" title="Sync live with official Spotify app" style="font-size: 11px; padding: 3px 7px; border-radius: 12px; background: rgba(255,255,255,0.08); border: 1px solid var(--border-color); color: var(--text-main); display: flex; align-items: center; gap: 4px; cursor: pointer; -webkit-app-region: no-drag;">
           <span class="sync-dot" style="width: 6px; height: 6px; border-radius: 50%; background: #aaa; display: inline-block;"></span>
           <span>Sync</span>
         </button>
@@ -56,6 +59,11 @@
               <span class="bar"></span>
             </span>
           </div>
+          <div id="live-mini-lyric-box" class="home-lyrics-box" onclick="window.toggleLyrics && window.toggleLyrics(true)" title="Click to open full synchronized lyrics (Ctrl+L)">
+            <div id="mini-lyric-prev" class="mini-lyric-line mini-lyric-prev"></div>
+            <div id="live-mini-lyric" class="mini-lyric-line mini-lyric-curr"></div>
+            <div id="mini-lyric-next" class="mini-lyric-line mini-lyric-next"></div>
+          </div>
         </div>
         <div class="controls" style="display: flex; align-items: center; justify-content: flex-start; gap: 12px; margin-top: 10px;">
           <button class="icon-btn" id="btn-shuffle" title="Shuffle" style="color: var(--text-muted);">
@@ -72,6 +80,9 @@
           </button>
           <button class="icon-btn" id="btn-loop" title="Loop" style="color: var(--text-muted);">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+          </button>
+          <button class="icon-btn" id="btn-player-lyrics" onclick="window.toggleLyrics && window.toggleLyrics()" title="Lyrics (Ctrl+L)" style="color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center;">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
           </button>
         </div>
       </div>
@@ -133,6 +144,25 @@
     <div id="player-toast" class="player-toast"></div>
   </div>
 
+  <!-- Synced Lyrics Overlay Panel -->
+  <div id="lyrics-panel" class="lyrics-panel">
+    <div class="lyrics-header">
+      <div class="lyrics-title-info">
+        <span class="lyrics-badge">🎤 Synced</span>
+        <span id="lyrics-song-title" class="lyrics-song-title">Lyrics</span>
+      </div>
+      <div class="lyrics-header-actions">
+        <button id="btn-lyrics-resync" class="lyrics-action-btn" onclick="window.loadLyricsForCurrentTrack && window.loadLyricsForCurrentTrack(true)" title="Refresh Lyrics">🔄</button>
+        <button id="btn-close-lyrics" class="lyrics-action-btn" onclick="window.toggleLyrics && window.toggleLyrics(false)" title="Close Lyrics">✕</button>
+      </div>
+    </div>
+    <div id="lyrics-scroll-container" class="lyrics-scroll-container">
+      <div id="lyrics-lines" class="lyrics-lines">
+        <div class="lyrics-placeholder">Click 🎤 Lyrics to start</div>
+      </div>
+    </div>
+  </div>
+
   <!-- Settings Full Overlay -->
   <div class="settings-panel" id="settings-panel">
     <div class="settings-header">
@@ -163,6 +193,15 @@
             <div style="padding: 6px 8px; font-size: 11px; font-weight: 500; display: flex; justify-content: space-between; align-items: center;">
               <span>Pure Glass</span>
               <span style="font-size: 8px; color: var(--accent); font-weight: bold;">GLASS</span>
+            </div>
+          </div>
+
+          <!-- Rotating / Dynamic Album Cover Card -->
+          <div class="bg-card" data-bg="__rotating_cover__" style="cursor: pointer; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; background: rgba(255,255,255,0.04); transition: all 0.2s;">
+            <div style="height: 70px; display: flex; align-items: center; justify-content: center; font-size: 28px; background: rgba(0,0,0,0.3);">💿</div>
+            <div style="padding: 6px 8px; font-size: 11px; font-weight: 500; display: flex; justify-content: space-between; align-items: center;">
+              <span>Rotating Cover</span>
+              <span style="font-size: 8px; color: var(--accent); font-weight: bold;">VINYL</span>
             </div>
           </div>
 
@@ -446,12 +485,15 @@
       </div>
 
       <!-- Quick Action Buttons -->
-      <div style="display: flex; gap: 10px; padding: 12px 18px; border-bottom: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.02);">
-        <button id="btn-auto-song-cover" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 12px; font-size: 12px; font-weight: 500; border-radius: 8px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); color: var(--text-main); cursor: pointer; transition: background 0.2s;">
-          🎵 Auto (Song Art)
+      <div style="display: flex; gap: 8px; padding: 12px 18px; border-bottom: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.02);">
+        <button id="btn-auto-song-cover" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 8px 10px; font-size: 11px; font-weight: 500; border-radius: 8px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); color: var(--text-main); cursor: pointer; transition: background 0.2s;">
+          🎵 Song Art
         </button>
-        <button id="btn-upload-custom-cover" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 12px; font-size: 12px; font-weight: 500; border-radius: 8px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); color: var(--text-main); cursor: pointer; transition: background 0.2s;">
-          📁 Upload Your Own
+        <button id="btn-toggle-spin-cover" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 8px 10px; font-size: 11px; font-weight: 500; border-radius: 8px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); color: var(--text-main); cursor: pointer; transition: all 0.2s;">
+          💿 Rotating Vinyl
+        </button>
+        <button id="btn-upload-custom-cover" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 8px 10px; font-size: 11px; font-weight: 500; border-radius: 8px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); color: var(--text-main); cursor: pointer; transition: background 0.2s;">
+          📁 Upload
         </button>
       </div>
 

@@ -5,8 +5,8 @@
   "main": "main.js",
   "type": "module",
   "scripts": {
-    "start": "electron .",
-    "dev": "electron .",
+    "start": "node scripts/start.js",
+    "dev": "node scripts/start.js",
     "postinstall": "node scripts/ensure-ytdlp.js"
   },
   "dependencies": {

@@ -12,6 +12,7 @@ const config = new Conf({
     spotifyClientId:     { type: 'string', default: '' },
     spotifyClientSecret: { type: 'string', default: '' },
     redirectUri:         { type: 'string', default: 'http://127.0.0.1:8888/callback' },
+    selectedBg:          { type: 'string', default: '' },
   }
 })
 
@@ -93,6 +94,14 @@ export function clearAll() {
   config.delete('tokenExpiry')
   config.delete('spotifyUserId')
   config.delete('displayName')
+}
+
+export function getSavedBackground() {
+  return config.get('selectedBg') || ''
+}
+
+export function saveBackground(bg) {
+  config.set('selectedBg', bg || '')
 }
 
 export function hardReset() {

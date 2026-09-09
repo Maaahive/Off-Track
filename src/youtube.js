@@ -43,25 +43,24 @@ export async function getStreamData(query) {
     console.log(`YouTube Search Query: ${searchQuery} (Target: ${targetDurationMs}ms)`)
     const dlp = await getYtDlp()
     const dlpArgs = [
-      `ytsearch5:${searchQuery}`,
-      '--print', '%(title)s|||%(url)s|||%(duration_string)s|||%(thumbnail)s',
+      `ytsearch3:${searchQuery}`,
+      '--print', '%(title)s|||%(url)s|||%(duration_string)s|||%(thumbnail)s|||%(duration)s',
       '--extractor-args', 'youtube:player_client=android',
-      '-f', 'ba[ext=m4a]/140/251/ba/b',
+      '-f', 'ba[ext=m4a]/140/bestaudio[ext=m4a]/251/bestaudio[ext=webm]/bestaudio/18/b',
       '--no-playlist',
       '--no-warnings',
       '--no-update',
-      '--match-filter', 'duration < 600',
     ]
     if (ffmpegInstaller && ffmpegInstaller.path && fs.existsSync(ffmpegInstaller.path)) {
       dlpArgs.push('--ffmpeg-location', ffmpegInstaller.path)
     }
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Search timed out after 12s. Check your connection.')), 12000)
+      setTimeout(() => reject(new Error('Search timed out after 20s. Check your connection.')), 20000)
     )
     const output = await Promise.race([dlp.execPromise(dlpArgs), timeoutPromise])
     const lines = output.trim().split('\n').filter(l => l.includes('|||'))
     if (lines.length === 0) {
-      throw new Error('No stream found matching criteria')
+      throw new Error('No results found for this search')
     }
     
     const results = [];
@@ -72,15 +71,29 @@ export async function getStreamData(query) {
         const streamUrl = parts[1] || '';
         const durationStr = parts[2] || '0:00';
         const thumbnail = parts[3] || '';
+        // parts[4] is raw duration in seconds from yt-dlp
+        const rawSec = parts[4] ? parseInt(parts[4], 10) : 0;
+
+        let durationSeconds = rawSec;
+        if (!durationSeconds) {
+          // Fallback: parse durationStr
+          const tparts = durationStr.split(':').map(Number);
+          if (tparts.length === 3) durationSeconds = tparts[0]*3600 + tparts[1]*60 + tparts[2];
+          else if (tparts.length === 2) durationSeconds = tparts[0]*60 + tparts[1];
+          else if (tparts.length === 1) durationSeconds = tparts[0];
+        }
+
+        // Client-side filter: skip obvious compilations/podcasts (> 20 min)
+        if (durationSeconds > 1200) continue;
         
-        let durationSeconds = 0;
-        const tparts = durationStr.split(':').map(Number);
-        if (tparts.length === 3) durationSeconds = tparts[0]*3600 + tparts[1]*60 + tparts[2];
-        else if (tparts.length === 2) durationSeconds = tparts[0]*60 + tparts[1];
-        else if (tparts.length === 1) durationSeconds = tparts[0];
-        
-        results.push({ title, streamUrl, durationStr, durationSeconds, thumbnail });
+        if (streamUrl) {
+          results.push({ title, streamUrl, durationStr, durationSeconds, thumbnail });
+        }
       }
+    }
+
+    if (results.length === 0) {
+      throw new Error('No suitable stream found (all results were too long or unavailable)');
     }
     
     let bestResult = results[0];
@@ -98,6 +111,7 @@ export async function getStreamData(query) {
     }
     
     return { title: bestResult.title, streamUrl: bestResult.streamUrl, durationStr: bestResult.durationStr, durationSeconds: bestResult.durationSeconds, thumbnail: bestResult.thumbnail }
+
   })();
 
   inFlightRequests.set(query, promise);

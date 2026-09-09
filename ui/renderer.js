@@ -1027,6 +1027,10 @@ if (window) window.addEventListener('keydown', (e) => {
         e.preventDefault();
         if (btnSpotifySync) btnSpotifySync.click();
       }
+      if ((isCmdOrCtrl && e.key.toLowerCase() === 'l') || pressedKey === 'L' && isCmdOrCtrl) {
+        e.preventDefault();
+        if (typeof window.toggleLyrics === 'function') window.toggleLyrics();
+      }
       if (checkMatch(appShortcuts.settings)) {
         e.preventDefault();
         if (window.api && window.api.openSettings) window.api.openSettings();
@@ -1199,7 +1203,7 @@ function startSearchTimer(query) {
     if (!isPlaying && artistEl) {
       artistEl.innerText = 'Search timed out. Try again.';
     }
-  }, 14000);
+  }, 22000);
 }
 
 function stopSearchTimer() {
@@ -1311,11 +1315,20 @@ function updateAlbumCover(artUrl) {
   if (artUrl) currentPlayingArt = artUrl;
   const customCover = localStorage.getItem('userCustomCover');
   const img = document.getElementById('custom-gif-img');
-  if (!img) return;
-  if (customCover) {
-    img.src = customCover;
-  } else if (artUrl) {
-    img.src = artUrl;
+  if (img) {
+    if (customCover) {
+      img.src = customCover;
+    } else if (artUrl) {
+      img.src = artUrl;
+    }
+  }
+  // If Rotating Cover wallpaper is selected, dynamically update wallpaper too!
+  const currentBg = localStorage.getItem('selectedBg');
+  if (currentBg === '__rotating_cover__') {
+    const bgLayer = document.getElementById('bg-layer');
+    if (bgLayer && (artUrl || currentPlayingArt)) {
+      bgLayer.style.backgroundImage = `url("${artUrl || currentPlayingArt}")`;
+    }
   }
 }
 
@@ -1423,6 +1436,10 @@ function renderCoversGrid() {
     const img = document.createElement('img');
     img.src = c.file;
     img.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover;';
+    img.onerror = () => {
+      // File was deleted — hide this grid cell entirely
+      item.style.display = 'none';
+    };
     item.appendChild(img);
 
     item.onclick = () => selectCustomCover(c.file);
@@ -1482,6 +1499,37 @@ if (coverFileUpload) {
   });
 }
 
+const btnToggleSpinCover = document.getElementById('btn-toggle-spin-cover');
+
+function updateRotatingCoverUI() {
+  const isSpin = localStorage.getItem('rotatingCoverEnabled') === 'true';
+  const img = document.getElementById('custom-gif-img');
+  const wrapper = document.getElementById('album-art-wrapper');
+  if (img) {
+    img.classList.toggle('spin-cd', isSpin);
+  }
+  if (wrapper) {
+    wrapper.classList.toggle('vinyl-mode', isSpin);
+  }
+  if (btnToggleSpinCover) {
+    btnToggleSpinCover.style.background = isSpin ? 'rgba(57, 255, 20, 0.2)' : 'rgba(255, 255, 255, 0.08)';
+    btnToggleSpinCover.style.borderColor = isSpin ? 'var(--accent)' : 'rgba(255, 255, 255, 0.12)';
+    btnToggleSpinCover.style.color = isSpin ? 'var(--accent)' : 'var(--text-main)';
+    btnToggleSpinCover.innerText = isSpin ? '💿 Spinning: ON' : '💿 Rotating Vinyl';
+  }
+}
+
+if (btnToggleSpinCover) {
+  btnToggleSpinCover.addEventListener('click', () => {
+    const isSpin = localStorage.getItem('rotatingCoverEnabled') === 'true';
+    const next = !isSpin;
+    localStorage.setItem('rotatingCoverEnabled', next ? 'true' : 'false');
+    updateRotatingCoverUI();
+    showToast(next ? '💿 Rotating Vinyl cover turned ON!' : '💿 Normal cover restored');
+  });
+}
+updateRotatingCoverUI();
+
 window.api.onTrackStarted((event, track) => {
   stopSearchTimer();
   showToast(`🎵 Now Playing: ${track.title || 'Track'}`);
@@ -1496,12 +1544,41 @@ window.api.onTrackStarted((event, track) => {
   isPlaying = true
   updatePlayIcon()
   document.querySelector('.time-total').innerText = track.durationStr || '0:00'
+  
+  // Handle start/resume timestamp from Spotify handoff
+  const startSec = typeof track.initialProgressSeconds === 'number' ? track.initialProgressSeconds : 0;
+  currentPlaybackTime = startSec;
+  nativeAudioAnchor = { timeSec: startSec, updatedAt: Date.now() };
   const elapsedEl = document.querySelector('.time-elapsed');
-  if (elapsedEl) elapsedEl.innerText = '0:00';
-  updateProgressUI(0);
+  if (elapsedEl) {
+    const m = Math.floor(startSec / 60);
+    const s = Math.floor(startSec % 60);
+    elapsedEl.innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
+  }
+  if (currentDuration > 0 && startSec > 0) {
+    updateProgressUI((startSec / currentDuration) * 100);
+  } else {
+    updateProgressUI(0);
+  }
+
   if (track.albumArt) {
     updateAlbumCover(track.albumArt)
   }
+
+  // Immediately clear old lyrics and begin loading new ones
+  currentLyricsLines = [];
+  currentTrackForLyrics = track;
+  const lyricsContainer = document.getElementById('lyrics-lines');
+  if (lyricsContainer) {
+    lyricsContainer.innerHTML = '<div class="lyrics-placeholder">⏳ Fetching synchronized lyrics...</div>';
+  }
+  const prevEl = document.getElementById('mini-lyric-prev');
+  const currEl = document.getElementById('live-mini-lyric');
+  const nextEl = document.getElementById('mini-lyric-next');
+  if (prevEl) prevEl.innerText = '';
+  if (currEl) currEl.innerText = '';
+  if (nextEl) nextEl.innerText = '';
+  loadLyricsForCurrentTrack();
 })
 
 window.api.onTrackError((event, errorMsg) => {
@@ -1694,6 +1771,11 @@ async function updateSpotifySyncUI(active) {
   }
   if (toggleSpotifySyncSetting) {
     toggleSpotifySyncSetting.checked = active;
+  }
+  lastLoadedLyricsSong = '';
+  currentLyricsLines = [];
+  if (typeof loadLyricsForCurrentTrack === 'function') {
+    loadLyricsForCurrentTrack();
   }
 }
 
@@ -1895,23 +1977,42 @@ function initThemeVars() {
 }
 initThemeVars()
 
-// Background Wallpaper Selection Logic (Google Drive Wallpapers + Glass)
+// Background Wallpaper Selection Logic (Google Drive Wallpapers + Glass + Rotating Cover)
 function applyWallpaper(bgUrl, broadcast = true) {
   const bgLayer = document.getElementById('bg-layer');
   const appWrapper = document.querySelector('.app-wrapper');
   if (bgLayer) {
     if (!bgUrl) {
+      // Pure Glass Mode
       bgLayer.style.backgroundImage = 'none';
       bgLayer.style.display = 'none';
+      bgLayer.style.filter = '';
+      bgLayer.style.transform = '';
       if (appWrapper) {
         appWrapper.style.background = 'rgba(15, 15, 18, 0.35)';
         appWrapper.style.backdropFilter = 'blur(25px)';
         appWrapper.style.webkitBackdropFilter = 'blur(25px)';
       }
+    } else if (bgUrl === '__rotating_cover__') {
+      // Rotating / Dynamic Album Cover Art Wallpaper
+      const coverArt = currentPlayingArt || document.getElementById('custom-gif-img')?.src || 'backgrounds/wallpaper.jpg';
+      bgLayer.style.backgroundImage = `url("${coverArt}")`;
+      bgLayer.style.display = 'block';
+      bgLayer.style.opacity = '1';
+      bgLayer.style.filter = 'blur(28px) brightness(0.4)';
+      bgLayer.style.transform = 'scale(1.15)';
+      if (appWrapper) {
+        appWrapper.style.background = 'rgba(10, 10, 12, 0.22)';
+        appWrapper.style.backdropFilter = 'none';
+        appWrapper.style.webkitBackdropFilter = 'none';
+      }
     } else {
+      // Standard Wallpaper
       bgLayer.style.backgroundImage = `url("${bgUrl}")`;
       bgLayer.style.display = 'block';
       bgLayer.style.opacity = '1';
+      bgLayer.style.filter = '';
+      bgLayer.style.transform = '';
       if (appWrapper) {
         appWrapper.style.background = 'rgba(10, 10, 12, 0.22)';
         appWrapper.style.backdropFilter = 'none';
@@ -1935,8 +2036,9 @@ function applyWallpaper(bgUrl, broadcast = true) {
     }
   });
 
-  if (broadcast && window.api && window.api.changeBackground) {
-    window.api.changeBackground(bgUrl);
+  if (broadcast && window.api) {
+    if (window.api.changeBackground) window.api.changeBackground(bgUrl);
+    if (window.api.saveBackground) window.api.saveBackground(bgUrl);
   }
 }
 
@@ -1957,10 +2059,16 @@ document.querySelectorAll('.bg-card').forEach(card => {
   }
 });
 
-// Restore saved wallpaper or get from main process
+// Restore saved wallpaper from localStorage or persistent main process config
 const savedBg = localStorage.getItem('selectedBg');
-if (savedBg !== null) {
+if (savedBg !== null && savedBg !== '') {
   applyWallpaper(savedBg, false);
+} else if (savedBg === '') {
+  applyWallpaper('', false);
+} else if (window.api && window.api.getSavedBackground) {
+  window.api.getSavedBackground().then(bg => {
+    if (bg !== undefined && bg !== null) applyWallpaper(bg, false);
+  }).catch(() => {});
 } else if (window.api && window.api.getCurrentBackground) {
   window.api.getCurrentBackground().then(bg => {
     if (bg) applyWallpaper(bg, false);
@@ -2137,6 +2245,7 @@ function updateProgressUI(pct) {
 }
 
 window.api.onPlaybackTime((event, time) => {
+  currentPlaybackTime = time
   if (currentDuration > 0 && !isDraggingProgress) {
     const pct = (time / currentDuration) * 100
     updateProgressUI(pct)
@@ -2371,6 +2480,7 @@ if (btnCancelTheme) btnCancelTheme.addEventListener('click', () => {
 
 function injectThemeCard(theme, isCustom = false) {
   const grid = document.querySelector('.theme-grid')
+  if (!grid) return;
   const card = document.createElement('div')
   card.className = 'theme-card'
   card.setAttribute('data-color', theme.color)
@@ -2651,14 +2761,21 @@ function applyCustomGifSettings() {
     if (toggleCustomGif) toggleCustomGif.checked = false;
     if (customGifDetails) customGifDetails.style.display = 'none';
     if (customGifImg) {
-      customGifImg.src = defaultCdSvg;
-      customGifImg.classList.add('spin-cd');
+      const customCover = localStorage.getItem('userCustomCover');
+      if (customCover) {
+        customGifImg.src = customCover;
+      } else if (currentPlayingArt) {
+        customGifImg.src = currentPlayingArt;
+      }
+      const isSpin = localStorage.getItem('rotatingCoverEnabled') === 'true';
+      customGifImg.classList.toggle('spin-cd', isSpin);
     }
     if (customGifOverlay) customGifOverlay.style.borderRadius = '50%';
-    const bgLayer = document.getElementById('bg-layer');
-    if (bgLayer) {
-      bgLayer.style.backgroundImage = 'none';
-      bgLayer.style.display = 'none';
+    
+    // Restore wallpaper if custom GIF background is disabled
+    const savedBg = localStorage.getItem('selectedBg');
+    if (savedBg !== null) {
+      applyWallpaper(savedBg, false);
     }
     document.body.style.backgroundImage = 'none';
     root.style.setProperty('--bg-blur', '25px');
@@ -2823,5 +2940,406 @@ if (window.api && window.api.onSettingsSynced) {
       newValue: value
     });
     window.dispatchEvent(ev);
+  });
+}
+
+// ─── Synchronized Real-Time Lyrics Engine ────────────────────────────────────
+let currentLyricsLines = []; // Array of { timeMs: number, text: string }
+let activeLyricIndex = -1;
+let isLyricsOpen = false;
+let currentTrackForLyrics = null;
+let lastLoadedLyricsSong = '';
+let isFetchingLyrics = false;
+let userHasScrolledLyrics = false;
+let userScrollTimeout = null;
+
+let spotifyPlaybackAnchor = {
+  progressMs: 0,
+  updatedAt: Date.now(),
+  isPlaying: false
+};
+
+// Parse LRC string format: [mm:ss.xx] Text
+function parseLRC(lrcText) {
+  if (!lrcText || typeof lrcText !== 'string') return [];
+  const lines = lrcText.split('\n');
+  const result = [];
+  const timeRegex = /\[(\d{2}):(\d{2})(?:\.(\d{2,3}))?\]/g;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    
+    // Find all timestamp tags on this line
+    let match;
+    const timestamps = [];
+    timeRegex.lastIndex = 0;
+    while ((match = timeRegex.exec(trimmed)) !== null) {
+      const minutes = parseInt(match[1], 10);
+      const seconds = parseInt(match[2], 10);
+      const frac = match[3] ? (match[3].length === 2 ? parseInt(match[3], 10) * 10 : parseInt(match[3], 10)) : 0;
+      const timeMs = (minutes * 60 + seconds) * 1000 + frac;
+      timestamps.push(timeMs);
+    }
+
+    const text = trimmed.replace(timeRegex, '').trim();
+    if (text) {
+      if (timestamps.length > 0) {
+        for (const t of timestamps) {
+          result.push({ timeMs: t, text });
+        }
+      } else {
+        result.push({ timeMs: null, text });
+      }
+    }
+  }
+
+  // Sort chronologically (ignoring nulls)
+  result.sort((a, b) => {
+    if (a.timeMs === null && b.timeMs === null) return 0;
+    if (a.timeMs === null) return 1;
+    if (b.timeMs === null) return -1;
+    return a.timeMs - b.timeMs;
+  });
+  return result;
+}
+
+// Convert plain lyrics (without timestamps) to display list
+function parsePlainLyrics(plainText) {
+  if (!plainText || typeof plainText !== 'string') return [];
+  return plainText
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
+    .map(text => ({ timeMs: null, text }));
+}
+
+async function loadLyricsForCurrentTrack(explicitTrack = null) {
+  if (isFetchingLyrics) return;
+  const t = explicitTrack || currentTrackForLyrics;
+  let title = t?.title || document.getElementById('track-title')?.innerText || '';
+  let artist = t?.artist || document.getElementById('artist-name')?.innerText || '';
+  if (!artist || artist === 'Ready to play') {
+    const rawArtist = document.getElementById('track-artist')?.innerText || '';
+    artist = rawArtist.split('\n')[0].trim();
+  }
+  if (artist === 'Ready to play' || artist === 'Spotify' || artist === 'YouTube') {
+    artist = '';
+  }
+
+  const lyricsSongTitle = document.getElementById('lyrics-song-title');
+  const lyricsLinesContainer = document.getElementById('lyrics-lines');
+
+  if (!title || title === 'Search for a song...' || title === 'Ready to play' || title === 'Search Failed') {
+    if (lyricsLinesContainer) {
+      lyricsLinesContainer.innerHTML = '<div class="lyrics-placeholder">Play a song to view synced lyrics 🎶</div>';
+    }
+    const prevEl = document.getElementById('mini-lyric-prev');
+    const currEl = document.getElementById('live-mini-lyric');
+    const nextEl = document.getElementById('mini-lyric-next');
+    if (prevEl) prevEl.innerText = '';
+    if (currEl) currEl.innerText = '';
+    if (nextEl) nextEl.innerText = '';
+    return;
+  }
+
+  if (lyricsSongTitle) {
+    lyricsSongTitle.innerText = artist ? `${title} • ${artist}` : title;
+    lyricsSongTitle.title = artist ? `${title} - ${artist}` : title;
+  }
+
+  if (lyricsLinesContainer) {
+    lyricsLinesContainer.innerHTML = '<div class="lyrics-placeholder">⏳ Fetching synchronized lyrics...</div>';
+  }
+
+  isFetchingLyrics = true;
+  try {
+    if (!window.api || !window.api.getLyrics) {
+      throw new Error('Lyrics API bridge unavailable');
+    }
+
+    const res = await window.api.getLyrics({
+      title,
+      artist,
+      durationSeconds: currentDuration || t?.durationSeconds
+    });
+
+    if (res && res.success && res.data) {
+      const data = res.data;
+      if (data.syncedLyrics) {
+        currentLyricsLines = parseLRC(data.syncedLyrics);
+      } else if (data.plainLyrics) {
+        currentLyricsLines = parsePlainLyrics(data.plainLyrics);
+      } else {
+        currentLyricsLines = [];
+      }
+    } else {
+      currentLyricsLines = [];
+    }
+
+    lastLoadedLyricsSong = `${title}__${artist}`;
+    renderLyricsUI();
+
+    // Immediately sync to current playback position
+    const currentMs = (isSpotifySyncing && spotifyPlaybackAnchor.isPlaying)
+      ? (spotifyPlaybackAnchor.progressMs + (Date.now() - spotifyPlaybackAnchor.updatedAt))
+      : (currentPlaybackTime * 1000);
+    if (currentMs > 0) {
+      syncLyricsProgress(currentMs);
+    }
+  } catch (err) {
+    console.warn('[Lyrics] Load error:', err);
+    if (lyricsLinesContainer) {
+      lyricsLinesContainer.innerHTML = '<div class="lyrics-placeholder">⚠️ Could not load lyrics for this track</div>';
+    }
+  } finally {
+    isFetchingLyrics = false;
+  }
+}
+
+function renderLyricsUI() {
+  const lyricsLinesContainer = document.getElementById('lyrics-lines');
+  if (!lyricsLinesContainer) return;
+  lyricsLinesContainer.innerHTML = '';
+  activeLyricIndex = -1;
+
+  if (!currentLyricsLines || currentLyricsLines.length === 0) {
+    lyricsLinesContainer.innerHTML = '<div class="lyrics-placeholder">No synchronized lyrics found for this song.<br><span style="font-size: 11px; opacity: 0.6;">(Enjoy the music! 🎵)</span></div>';
+    return;
+  }
+
+  currentLyricsLines.forEach((item, index) => {
+    const lineEl = document.createElement('div');
+    lineEl.className = 'lyrics-line';
+    lineEl.innerText = item.text;
+    lineEl.dataset.index = index;
+
+    if (typeof item.timeMs === 'number') {
+      lineEl.dataset.timeMs = item.timeMs;
+      // Click to seek song to this line timestamp
+      lineEl.addEventListener('click', () => {
+        const seekSeconds = item.timeMs / 1000;
+        if (isSpotifySyncing) {
+          window.api.spotifyRemoteSeek(seekSeconds);
+          spotifyPlaybackAnchor = {
+            progressMs: item.timeMs,
+            updatedAt: Date.now(),
+            isPlaying: true
+          };
+        } else {
+          window.api.seek(seekSeconds);
+        }
+        syncLyricsProgress(item.timeMs);
+      });
+    }
+
+    lyricsLinesContainer.appendChild(lineEl);
+  });
+}
+
+function syncLyricsProgress(currentMs) {
+  if (!currentLyricsLines || currentLyricsLines.length === 0) return;
+
+  // Find active line index
+  let newIndex = -1;
+  for (let i = 0; i < currentLyricsLines.length; i++) {
+    const item = currentLyricsLines[i];
+    if (typeof item.timeMs === 'number' && item.timeMs <= currentMs) {
+      newIndex = i;
+    } else if (typeof item.timeMs === 'number' && item.timeMs > currentMs) {
+      break;
+    }
+  }
+
+  if (newIndex !== -1) {
+    const prevText = newIndex > 0 ? (currentLyricsLines[newIndex - 1]?.text || '') : '';
+    const currentText = currentLyricsLines[newIndex]?.text || '';
+    const nextText = (newIndex + 1 < currentLyricsLines.length) ? (currentLyricsLines[newIndex + 1]?.text || '') : '';
+
+    const prevEl = document.getElementById('mini-lyric-prev');
+    const miniLyricEl = document.getElementById('live-mini-lyric');
+    const nextEl = document.getElementById('mini-lyric-next');
+
+    if (prevEl) prevEl.innerText = prevText;
+    if (miniLyricEl && currentText) {
+      miniLyricEl.innerText = `🎤 ${currentText}`;
+    }
+    if (nextEl) nextEl.innerText = nextText;
+  }
+
+  if (!isLyricsOpen) return;
+
+  const lyricsLinesContainer = document.getElementById('lyrics-lines');
+  const lyricsScrollContainer = document.getElementById('lyrics-scroll-container');
+  if (!lyricsLinesContainer) return;
+
+  if (newIndex !== activeLyricIndex && newIndex !== -1) {
+    activeLyricIndex = newIndex;
+
+    const allLines = lyricsLinesContainer.querySelectorAll('.lyrics-line');
+    allLines.forEach((el, idx) => {
+      if (idx === activeLyricIndex) {
+        el.classList.add('active');
+      } else {
+        el.classList.remove('active');
+      }
+    });
+
+    // Auto-scroll active line to center unless user is manually scrolling
+    if (!userHasScrolledLyrics && lyricsScrollContainer) {
+      const activeEl = allLines[activeLyricIndex];
+      if (activeEl) {
+        const containerHeight = lyricsScrollContainer.clientHeight;
+        const lineTop = activeEl.offsetTop;
+        const lineHeight = activeEl.clientHeight;
+        const targetScroll = lineTop - (containerHeight / 2) + (lineHeight / 2);
+        lyricsScrollContainer.scrollTo({
+          top: Math.max(0, targetScroll),
+          behavior: 'smooth'
+        });
+      }
+    }
+  }
+}
+
+// Global toggle function
+window.toggleLyrics = function(show) {
+  if (show === undefined) show = !isLyricsOpen;
+  isLyricsOpen = Boolean(show);
+
+  const panel = document.getElementById('lyrics-panel');
+  const btnTop = document.getElementById('btn-lyrics');
+  const btnPlayer = document.getElementById('btn-player-lyrics');
+
+  if (panel) {
+    panel.classList.toggle('open', isLyricsOpen);
+  }
+
+  if (btnTop) {
+    if (isLyricsOpen) {
+      btnTop.classList.add('lyrics-btn-active');
+      btnTop.style.color = 'var(--accent)';
+      btnTop.style.borderColor = 'var(--accent)';
+    } else {
+      btnTop.classList.remove('lyrics-btn-active');
+      btnTop.style.color = 'var(--text-main)';
+      btnTop.style.borderColor = 'var(--border-color)';
+    }
+  }
+
+  if (btnPlayer) {
+    btnPlayer.style.color = isLyricsOpen ? 'var(--accent)' : 'var(--text-muted)';
+  }
+
+  showToast(isLyricsOpen ? '🎤 Synced Lyrics Opened' : '🎤 Lyrics Closed', 1200);
+
+  if (isLyricsOpen) {
+    loadLyricsForCurrentTrack();
+  }
+};
+
+window.loadLyricsForCurrentTrack = loadLyricsForCurrentTrack;
+
+// Keyboard shortcut Ctrl+L / Cmd+L for lyrics
+window.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'l' || e.key === 'L')) {
+    e.preventDefault();
+    window.toggleLyrics();
+  }
+});
+
+const lyricsScrollEl = document.getElementById('lyrics-scroll-container');
+if (lyricsScrollEl) {
+  lyricsScrollEl.addEventListener('wheel', () => {
+    userHasScrolledLyrics = true;
+    if (userScrollTimeout) clearTimeout(userScrollTimeout);
+    userScrollTimeout = setTimeout(() => {
+      userHasScrolledLyrics = false;
+    }, 4000);
+  });
+}
+
+// Anchor for native audio interpolation (mirrors Spotify anchor approach)
+let nativeAudioAnchor = { timeSec: 0, updatedAt: 0 };
+
+// Continuous smooth interpolation timer for real-time lyrics sync
+setInterval(() => {
+  if (isSpotifySyncing && spotifyPlaybackAnchor.isPlaying) {
+    const elapsed = Date.now() - spotifyPlaybackAnchor.updatedAt;
+    const currentMs = spotifyPlaybackAnchor.progressMs + elapsed;
+    syncLyricsProgress(currentMs);
+  } else if (!isSpotifySyncing && isPlaying && nativeAudioAnchor.updatedAt > 0) {
+    const elapsed = Date.now() - nativeAudioAnchor.updatedAt;
+    const interpolatedMs = (nativeAudioAnchor.timeSec * 1000) + elapsed;
+    syncLyricsProgress(interpolatedMs);
+  }
+}, 100);
+
+// Clear lyrics immediately when a song ends (before next track starts)
+if (window.api && window.api.onPlaybackStopped) {
+  window.api.onPlaybackStopped(() => {
+    currentLyricsLines = [];
+    currentTrackForLyrics = null;
+    lastLoadedLyricsSong = '';
+    nativeAudioAnchor = { timeSec: 0, updatedAt: 0 };
+    const lyricsContainer = document.getElementById('lyrics-lines');
+    if (lyricsContainer) {
+      lyricsContainer.innerHTML = '<div class="lyrics-placeholder">⏳ Loading next track...</div>';
+    }
+    const prevEl = document.getElementById('mini-lyric-prev');
+    const currEl = document.getElementById('live-mini-lyric');
+    const nextEl = document.getElementById('mini-lyric-next');
+    if (prevEl) prevEl.innerText = '';
+    if (currEl) currEl.innerText = '';
+    if (nextEl) nextEl.innerText = '';
+  });
+}
+
+// Direct in-process listener — zero IPC latency (dispatched by preload's timeupdate)
+window.addEventListener('native-audio-timeupdate', (e) => {
+  const timeSeconds = e.detail;
+  currentPlaybackTime = timeSeconds;
+  nativeAudioAnchor = { timeSec: timeSeconds, updatedAt: Date.now() };
+  if (!isSpotifySyncing) {
+    syncLyricsProgress(timeSeconds * 1000);
+  }
+});
+
+// Hook into Spotify live sync updates for lyrics
+if (window.api && window.api.onSpotifySyncUpdate) {
+  window.api.onSpotifySyncUpdate((_, track) => {
+    if (!track) return;
+    currentTrackForLyrics = track;
+
+    const progressMs = typeof track.progressMs === 'number'
+      ? track.progressMs
+      : (typeof track.progressSeconds === 'number' ? track.progressSeconds * 1000 : 0);
+
+    spotifyPlaybackAnchor = {
+      progressMs,
+      updatedAt: Date.now(),
+      isPlaying: !!track.isPlaying
+    };
+
+    const songKey = `${track.title || ''}__${track.artist || ''}`;
+    const needsFetch = (songKey !== lastLoadedLyricsSong) || (currentLyricsLines.length === 0 && !isFetchingLyrics);
+
+    if (needsFetch) {
+      lastLoadedLyricsSong = songKey;
+      currentLyricsLines = [];
+      const lyricsContainer = document.getElementById('lyrics-lines');
+      if (lyricsContainer) {
+        lyricsContainer.innerHTML = '<div class="lyrics-placeholder">⏳ Fetching synchronized lyrics...</div>';
+      }
+      const prevEl = document.getElementById('mini-lyric-prev');
+      const currEl = document.getElementById('live-mini-lyric');
+      const nextEl = document.getElementById('mini-lyric-next');
+      if (prevEl) prevEl.innerText = '';
+      if (currEl) currEl.innerText = '';
+      if (nextEl) nextEl.innerText = '';
+      loadLyricsForCurrentTrack(track);
+    } else {
+      syncLyricsProgress(progressMs);
+    }
   });
 }

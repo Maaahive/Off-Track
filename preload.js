@@ -10,7 +10,11 @@ function getAudio() {
     nativeAudio.preload = 'auto'
 
     nativeAudio.addEventListener('timeupdate', () => {
-      ipcRenderer.send('native-audio-time', nativeAudio.currentTime)
+      const t = nativeAudio.currentTime
+      // Dispatch directly in-process (zero IPC latency) for lyrics sync
+      window.dispatchEvent(new CustomEvent('native-audio-timeupdate', { detail: t }))
+      // Also send to main process for progress bar / other tracking
+      ipcRenderer.send('native-audio-time', t)
     })
 
     nativeAudio.addEventListener('play', () => {
@@ -34,11 +38,21 @@ function getAudio() {
 }
 
 // Commands from main.js to the audio element
-ipcRenderer.on('native-audio-cmd-play', (_, { streamUrl }) => {
+ipcRenderer.on('native-audio-cmd-play', (_, { streamUrl, startTime }) => {
   const audio = getAudio()
   if (audio.src !== streamUrl) {
     audio.pause()
     audio.src = streamUrl
+  }
+  if (typeof startTime === 'number' && startTime > 0) {
+    try {
+      audio.currentTime = startTime
+    } catch (_) {}
+    const onMeta = () => {
+      try { audio.currentTime = startTime } catch (_) {}
+      audio.removeEventListener('loadedmetadata', onMeta)
+    }
+    audio.addEventListener('loadedmetadata', onMeta)
   }
   const p = audio.play()
   if (p && p.catch) {
@@ -161,4 +175,7 @@ contextBridge.exposeInMainWorld('api', {
   onSpotifySyncUpdate: (callback) => ipcRenderer.on('spotify-sync-update', callback),
   onSpotifySyncStatusChanged: (callback) => ipcRenderer.on('spotify-sync-status-changed', callback),
   onSpotifySeekRestricted: (callback) => ipcRenderer.on('spotify-seek-restricted', callback),
+  getLyrics: (trackInfo) => ipcRenderer.invoke('get-lyrics', trackInfo),
+  saveBackground: (bgUrl) => ipcRenderer.invoke('save-background', bgUrl),
+  getSavedBackground: () => ipcRenderer.invoke('get-saved-background'),
 })
