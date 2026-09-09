@@ -372,13 +372,14 @@ async function playOnSpotify(query) {
 
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('native-audio-cmd-stop')
+        mainWindow.webContents.send('spotify-sync-update', lastSpotifyTrack)
         mainWindow.webContents.send('track-started', {
           ...currentTrack,
           initialProgressSeconds: 0
         })
       }
 
-      setTimeout(pollSpotifyPlayback, 400)
+      setTimeout(() => pollSpotifyPlayback(), 200)
       return { success: true, fromSpotify: true }
     } else {
       if (mainWindow && !mainWindow.isDestroyed()) {
@@ -1322,13 +1323,64 @@ ipcMain.handle('toggle-play', async () => {
   }
 })
 
+async function seekSpotify(seconds) {
+  if (spotifyAutoAdvanceTimer) {
+    clearTimeout(spotifyAutoAdvanceTimer)
+    spotifyAutoAdvanceTimer = null
+  }
+  hasAutoAdvancedSpotify = true
+  setTimeout(() => { hasAutoAdvancedSpotify = false }, 3500)
+
+  const posMs = Math.max(0, Math.floor(seconds * 1000))
+  lastSpotifyProgressSec = Math.floor(seconds)
+  if (lastSpotifyTrack) {
+    lastSpotifyTrack.progressSeconds = Math.floor(seconds)
+    lastSpotifyTrack.progressMs = posMs
+  }
+
+  const spotify = await safeGetSpotifyClient()
+  if (!spotify) return
+
+  try {
+    const devRes = await spotify.getMyDevices().catch(() => null)
+    const devices = (devRes && devRes.body && devRes.body.devices) || []
+    const targetDevice = devices.find(d => d.is_active) || devices[0]
+    const opts = targetDevice ? { device_id: targetDevice.id } : {}
+
+    console.log(`[SpotifySync] Seeking to ${seconds}s (${posMs}ms) on ${targetDevice?.name || 'active device'}...`)
+    await spotify.seek(posMs, opts)
+    setTimeout(() => pollSpotifyPlayback(), 200)
+  } catch (err) {
+    console.warn('[SpotifyRemote] seek error:', err.message)
+    // Fallback: If seek API is restricted (Spotify Free) or rejected, use play({ position_ms })
+    try {
+      const devRes = await spotify.getMyDevices().catch(() => null)
+      const devices = (devRes && devRes.body && devRes.body.devices) || []
+      const targetDevice = devices.find(d => d.is_active) || devices[0]
+      if (targetDevice && currentTrack && currentTrack.uri) {
+        console.log(`[SpotifySync] Seeking via play({ position_ms: ${posMs} })...`)
+        await spotify.play({
+          device_id: targetDevice.id,
+          uris: [currentTrack.uri],
+          position_ms: posMs
+        })
+        setTimeout(() => pollSpotifyPlayback(), 200)
+        return
+      }
+    } catch (e2) {
+      console.warn('[SpotifyRemote] play with position_ms fallback error:', e2.message)
+    }
+
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('spotify-seek-restricted', seconds)
+    }
+  }
+}
+
 ipcMain.handle('seek', async (event, seconds) => {
   if (spotifySyncActive) {
-    const spotify = await safeGetSpotifyClient()
-    if (spotify) {
-      try { await spotify.seek(Math.floor(seconds * 1000)) } catch (e) {}
-      return
-    }
+    await seekSpotify(seconds)
+    return
   }
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('native-audio-cmd-seek', seconds)
@@ -1343,10 +1395,11 @@ let lastSpotifyProgressSec = 0
 let lastSpotifyTrack = null
 let isSpotifyPolling = false
 
-function scheduleNextSpotifyPoll() {
+function scheduleNextSpotifyPoll(ms) {
   if (spotifySyncTimer) clearTimeout(spotifySyncTimer)
   if (spotifySyncActive) {
-    spotifySyncTimer = setTimeout(pollSpotifyPlayback, 1200)
+    const delay = ms || (lastSpotifyTrack && lastSpotifyTrack.isPlaying ? 800 : 1800)
+    spotifySyncTimer = setTimeout(pollSpotifyPlayback, delay)
   }
 }
 
@@ -1370,7 +1423,7 @@ async function pollSpotifyPlayback() {
       if (lastSpotifyTrack && lastSpotifyTrack.id !== item.id) {
         const prevDuration = lastSpotifyTrack.durationSeconds || 0
         const prevProgress = lastSpotifyProgressSec || 0
-        const prevReachedEnd = prevDuration > 0 && prevProgress >= (prevDuration - 4)
+        const prevReachedEnd = prevDuration > 0 && prevProgress >= (prevDuration - 3)
 
         if (prevReachedEnd && !hasAutoAdvancedSpotify && (playQueue.length > 0 || isLooping)) {
           console.log('[SpotifySync] Track finished naturally and Spotify moved track. Advancing OffTrack queue...')
@@ -1387,8 +1440,9 @@ async function pollSpotifyPlayback() {
       }
 
       // Check if paused at track end
-      const isNearEnd = (durationSec > 0 && progressSec >= durationSec - 2) || (lastSpotifyProgressSec > 0 && lastSpotifyProgressSec >= durationSec - 3)
-      if (!isPlaying && lastSpotifyTrack && lastSpotifyTrack.isPlaying && isNearEnd && !hasAutoAdvancedSpotify) {
+      // MUST ensure both current progress and previous progress are legitimately at the very end
+      const isNaturallyAtEnd = durationSec > 0 && progressSec >= (durationSec - 2) && lastSpotifyProgressSec >= (durationSec - 3)
+      if (!isPlaying && lastSpotifyTrack && lastSpotifyTrack.isPlaying && isNaturallyAtEnd && !hasAutoAdvancedSpotify) {
         if (playQueue.length > 0 || isLooping) {
           console.log('[SpotifySync] Track reached end and paused. Advancing queue...')
           hasAutoAdvancedSpotify = true
@@ -1401,7 +1455,7 @@ async function pollSpotifyPlayback() {
       const remainingMs = durationMs - progressMs
       if (isPlaying && remainingMs > 0 && remainingMs <= 2500 && !hasAutoAdvancedSpotify && (playQueue.length > 0 || isLooping)) {
         if (!spotifyAutoAdvanceTimer) {
-          console.log(`[SpotifySync] Scheduling queue advance in ${remainingMs + 300}ms`)
+          console.log(`[SpotifySync] Scheduling queue advance in ${remainingMs + 200}ms`)
           spotifyAutoAdvanceTimer = setTimeout(() => {
             spotifyAutoAdvanceTimer = null
             if (spotifySyncActive && !hasAutoAdvancedSpotify && (playQueue.length > 0 || isLooping)) {
@@ -1409,7 +1463,7 @@ async function pollSpotifyPlayback() {
               hasAutoAdvancedSpotify = true
               handleNextSong()
             }
-          }, remainingMs + 300)
+          }, remainingMs + 200)
         }
       } else if (!isPlaying && spotifyAutoAdvanceTimer) {
         clearTimeout(spotifyAutoAdvanceTimer)
@@ -1749,16 +1803,7 @@ ipcMain.handle('spotify-remote-prev', async () => {
 })
 
 ipcMain.handle('spotify-remote-seek', async (e, seconds) => {
-  const spotify = await safeGetSpotifyClient()
-  if (!spotify) return
-  try {
-    await spotify.seek(Math.floor(seconds * 1000))
-  } catch (err) {
-    console.warn('[SpotifyRemote] seek error:', err.message)
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('spotify-seek-restricted', seconds)
-    }
-  }
+  await seekSpotify(seconds)
 })
 
 // ─── Synced Lyrics Support (LRCLIB) ───────────────────────────────────────────

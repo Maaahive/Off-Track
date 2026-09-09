@@ -3123,8 +3123,10 @@ function renderLyricsUI() {
     if (typeof item.timeMs === 'number') {
       lineEl.dataset.timeMs = item.timeMs;
       // Click to seek song to this line timestamp
-      lineEl.addEventListener('click', () => {
+      lineEl.addEventListener('click', (ev) => {
+        ev.stopPropagation();
         const seekSeconds = item.timeMs / 1000;
+        currentPlaybackTime = seekSeconds;
         if (isSpotifySyncing) {
           window.api.spotifyRemoteSeek(seekSeconds);
           spotifyPlaybackAnchor = {
@@ -3136,6 +3138,11 @@ function renderLyricsUI() {
           window.api.seek(seekSeconds);
         }
         syncLyricsProgress(item.timeMs);
+        const elapsedEl = document.querySelector('.time-elapsed');
+        if (elapsedEl) elapsedEl.innerText = formatTime(seekSeconds);
+        if (currentDuration > 0) {
+          updateProgressUI((seekSeconds / currentDuration) * 100);
+        }
       });
     }
 
