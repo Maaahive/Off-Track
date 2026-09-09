@@ -1762,6 +1762,7 @@ if (toggleDarkText) {
 // ─── Mini Lyrics Under Title Option ─────────────────────────────────────────
 const toggleHomeMiniLyrics = document.getElementById('toggle-home-mini-lyrics');
 const liveMiniLyricBox = document.getElementById('live-mini-lyric-box');
+const btnPlayerLyrics = document.getElementById('btn-player-lyrics');
 let isHomeMiniLyricsEnabled = localStorage.getItem('homeMiniLyricsEnabled') !== 'false';
 
 function applyHomeMiniLyrics(enabled) {
@@ -1773,9 +1774,26 @@ function applyHomeMiniLyrics(enabled) {
   if (toggleHomeMiniLyrics) {
     toggleHomeMiniLyrics.checked = enabled;
   }
+  if (btnPlayerLyrics) {
+    btnPlayerLyrics.style.color = enabled ? 'var(--accent)' : 'var(--text-muted)';
+    btnPlayerLyrics.title = enabled ? 'Hide Lyrics Under Song Title' : 'Show Lyrics Under Song Title';
+  }
 }
 
+function toggleHomeMiniLyricsAction() {
+  applyHomeMiniLyrics(!isHomeMiniLyricsEnabled);
+  showToast(isHomeMiniLyricsEnabled ? '🎤 Mini lyrics shown under title' : '🎤 Mini lyrics hidden');
+}
+window.toggleHomeMiniLyricsAction = toggleHomeMiniLyricsAction;
+
 applyHomeMiniLyrics(isHomeMiniLyricsEnabled);
+
+if (btnPlayerLyrics) {
+  btnPlayerLyrics.onclick = (e) => {
+    e.stopPropagation();
+    toggleHomeMiniLyricsAction();
+  };
+}
 
 if (toggleHomeMiniLyrics) {
   toggleHomeMiniLyrics.checked = isHomeMiniLyricsEnabled;
@@ -3248,7 +3266,6 @@ window.toggleLyrics = function(show) {
 
   const panel = document.getElementById('lyrics-panel');
   const btnTop = document.getElementById('btn-lyrics');
-  const btnPlayer = document.getElementById('btn-player-lyrics');
 
   if (panel) {
     panel.classList.toggle('open', isLyricsOpen);
@@ -3264,10 +3281,6 @@ window.toggleLyrics = function(show) {
       btnTop.style.color = 'var(--text-main)';
       btnTop.style.borderColor = 'var(--border-color)';
     }
-  }
-
-  if (btnPlayer) {
-    btnPlayer.style.color = isLyricsOpen ? 'var(--accent)' : 'var(--text-muted)';
   }
 
   showToast(isLyricsOpen ? '🎤 Synced Lyrics Opened' : '🎤 Lyrics Closed', 1200);

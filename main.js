@@ -216,36 +216,81 @@ async function preloadNext() {
 }
 
 function parseTrackMetadata(youtubeTitle, originalQuery) {
+  let rawCleanQuery = (originalQuery || '')
+    .replace(/\|DURATION:\d+/gi, '')
+    .replace(/\|.*$/, '')
+    .trim();
+
+  // If query explicitly has ' by ' (e.g. from playlist or smart search)
+  if (rawCleanQuery.includes(' by ')) {
+    const qParts = rawCleanQuery.split(' by ');
+    return {
+      title: qParts[0].trim(),
+      artist: qParts.slice(1).join(' by ').trim()
+    };
+  }
+
   let clean = (youtubeTitle || '')
     .replace(/\s*[\(\[\{][^\)\]\}]*[\)\]\}]\s*/g, ' ')
     .replace(/\b(official\s+video|official\s+audio|official\s+music\s+video|music\s+video|lyric\s+video|lyrics|visualizer|audio|4k|hd|remastered|full\s+song)\b/gi, ' ')
     .replace(/\|.*$/, '')
     .replace(/\s+/g, ' ')
-    .trim()
+    .trim();
 
-  let artist = 'YouTube'
-  let title = clean
+  let artist = 'YouTube';
+  let title = clean;
 
-  if (clean.includes(' - ')) {
-    const parts = clean.split(' - ')
-    artist = parts[0].trim()
-    title = parts.slice(1).join(' - ').trim()
-  } else if (clean.includes(' – ')) {
-    const parts = clean.split(' – ')
-    artist = parts[0].trim()
-    title = parts.slice(1).join(' – ').trim()
-  } else if (clean.includes(': ')) {
-    const parts = clean.split(': ')
-    artist = parts[0].trim()
-    title = parts.slice(1).join(': ').trim()
+  let delimiter = null;
+  if (clean.includes(' - ')) delimiter = ' - ';
+  else if (clean.includes(' – ')) delimiter = ' – ';
+  else if (clean.includes(': ')) delimiter = ': ';
+
+  if (delimiter) {
+    const parts = clean.split(delimiter);
+    let p0 = parts[0].trim();
+    let p1 = parts.slice(1).join(delimiter).trim();
+
+    const qNorm = rawCleanQuery.toLowerCase();
+    const p0Norm = p0.toLowerCase();
+    const p1Norm = p1.toLowerCase();
+
+    const p0MatchesQuery = qNorm && (p0Norm === qNorm || p0Norm.includes(qNorm) || (qNorm.length > 3 && qNorm.includes(p0Norm)));
+    const p1MatchesQuery = qNorm && (p1Norm === qNorm || p1Norm.includes(qNorm) || (qNorm.length > 3 && qNorm.includes(p1Norm)));
+
+    if (p0MatchesQuery && !p1MatchesQuery) {
+      // User searched for p0 -> p0 is TITLE, p1 is ARTIST (e.g. 'Woh Kisna Hai - Sukhwinder Singh...')
+      title = p0;
+      artist = p1;
+    } else if (p1MatchesQuery && !p0MatchesQuery) {
+      // User searched for p1 -> p1 is TITLE, p0 is ARTIST (e.g. 'The Weeknd - Starboy')
+      artist = p0;
+      title = p1;
+    } else if (p1.includes(',') && !p0.includes(',')) {
+      // p1 contains a comma-separated artist list (e.g. 'Song - Artist 1, Artist 2')
+      title = p0;
+      artist = p1;
+    } else {
+      // Default YouTube convention: Artist - Title
+      artist = p0;
+      title = p1;
+    }
   }
 
-  if (!title) title = clean || originalQuery || 'Unknown Track'
+  // Extract featured artists from title to avoid cluttered title
+  const featMatch = title.match(/\s+\b(ft\.?|feat\.?)\s+(.*)$/i);
+  if (featMatch) {
+    title = title.replace(featMatch[0], '').trim();
+    if (artist !== 'YouTube' && !artist.toLowerCase().includes(featMatch[2].toLowerCase())) {
+      artist = artist + ' ft. ' + featMatch[2].trim();
+    }
+  }
+
+  if (!title) title = clean || originalQuery || 'Unknown Track';
   if (!artist || artist.toLowerCase() === 'youtube') {
-    artist = 'YouTube'
+    artist = rawCleanQuery && rawCleanQuery !== title ? rawCleanQuery : 'YouTube';
   }
 
-  return { artist, title }
+  return { artist, title };
 }
 
 async function playTrack(query, startTimeSeconds = 0) {
