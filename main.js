@@ -66,7 +66,7 @@ const customFetch = (url, options = {}) => {
 
 const { getTracks } = spotifyUrlInfo(customFetch)
 import { isLoggedIn, getTokens, isTokenExpired, saveTokens, saveAppCredentials, getAppCredentials, hardReset, getSavedBackground, saveBackground } from './src/config.js'
-import { getSpotifyClient, electronAuthCommand, cancelAuthCallback } from './src/auth.js'
+import { getSpotifyClient, electronAuthCommand, cancelAuthCallback, formatSpotifyAuthError } from './src/auth.js'
 import { getStreamData } from './src/youtube.js'
 
 let mainWindow
@@ -797,8 +797,9 @@ ipcMain.handle('save-spotify-creds', async (event, id, secret, redirectUri) => {
     if (settingsWindow && !settingsWindow.isDestroyed()) settingsWindow.reload()
     return { success: true, user: result.user }
   } catch (err) {
-    console.warn('In-app auth failed:', err.message)
-    return { success: false, error: err.message }
+    const errorMsg = formatSpotifyAuthError(err)
+    console.warn('In-app auth failed:', errorMsg)
+    return { success: false, error: errorMsg }
   }
 })
 
@@ -813,8 +814,9 @@ ipcMain.handle('save-and-auth-browser', async (event, id, secret, redirectUri) =
     if (settingsWindow && !settingsWindow.isDestroyed()) settingsWindow.reload()
     return { success: true, user: result.user }
   } catch (err) {
-    console.warn('Browser auth failed:', err.message)
-    return { success: false, error: err.message }
+    const errorMsg = formatSpotifyAuthError(err)
+    console.warn('Browser auth failed:', errorMsg)
+    return { success: false, error: errorMsg }
   }
 })
 
@@ -826,7 +828,7 @@ ipcMain.handle('exchange-spotify-code', async (event, codeOrUrl) => {
       if (match) code = decodeURIComponent(match[1])
     }
     if (!code) throw new Error('No valid authorization code found in input.')
-    const spotify = createSpotifyClient()
+    const spotify = getSpotifyClient()
     const data = await spotify.authorizationCodeGrant(code)
     const { access_token, refresh_token, expires_in } = data.body
     saveTokens({
@@ -835,14 +837,20 @@ ipcMain.handle('exchange-spotify-code', async (event, codeOrUrl) => {
       expiresIn:    expires_in,
     })
     spotify.setAccessToken(access_token)
-    const me = await spotify.getMe()
-    saveUserInfo({ id: me.body.id, displayName: me.body.display_name })
+    try {
+      const me = await spotify.getMe()
+      saveUserInfo({ id: me.body.id, displayName: me.body.display_name })
+    } catch (_) {
+      saveUserInfo({ id: 'spotify-user', displayName: 'Spotify User' })
+    }
     if (credsWindow && !credsWindow.isDestroyed()) credsWindow.close()
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.reload()
     if (settingsWindow && !settingsWindow.isDestroyed()) settingsWindow.reload()
-    return { success: true, user: me.body.display_name }
+    return { success: true, user: 'Spotify User' }
   } catch (err) {
-    return { success: false, error: err.message }
+    const errorMsg = formatSpotifyAuthError(err)
+    console.warn('Code exchange failed:', errorMsg)
+    return { success: false, error: errorMsg }
   }
 })
 

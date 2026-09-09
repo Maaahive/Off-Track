@@ -98,6 +98,21 @@ export async function authCommand() {
   }
 }
 
+export function formatSpotifyAuthError(err) {
+  if (!err) return 'Unknown authentication error'
+  if (err.body) {
+    if (typeof err.body === 'string') return err.body
+    if (err.body.error_description) return err.body.error_description
+    if (err.body.message) return err.body.message
+    if (err.body.error) {
+      return typeof err.body.error === 'string' ? err.body.error : (err.body.error.message || JSON.stringify(err.body.error))
+    }
+    return JSON.stringify(err.body)
+  }
+  if (err.message && err.message !== '[object Object]') return err.message
+  return String(err)
+}
+
 export async function electronAuthCommand(openUrlFn) {
   const spotify = createSpotifyClient()
   const scopes = [
@@ -117,7 +132,12 @@ export async function electronAuthCommand(openUrlFn) {
     await openBrowser(authURL)
   }
   const code = await waitForCallback()
-  const data = await spotify.authorizationCodeGrant(code)
+  let data
+  try {
+    data = await spotify.authorizationCodeGrant(code)
+  } catch (err) {
+    throw new Error(formatSpotifyAuthError(err))
+  }
   const { access_token, refresh_token, expires_in } = data.body
   saveTokens({
     accessToken:  access_token,
@@ -125,9 +145,14 @@ export async function electronAuthCommand(openUrlFn) {
     expiresIn:    expires_in,
   })
   spotify.setAccessToken(access_token)
-  const me = await spotify.getMe()
-  saveUserInfo({ id: me.body.id, displayName: me.body.display_name })
-  return { success: true, user: me.body.display_name }
+  try {
+    const me = await spotify.getMe()
+    saveUserInfo({ id: me.body.id, displayName: me.body.display_name })
+    return { success: true, user: me.body.display_name }
+  } catch (_) {
+    saveUserInfo({ id: 'spotify-user', displayName: 'Spotify User' })
+    return { success: true, user: 'Spotify User' }
+  }
 }
 
 let activeCallbackServer = null
@@ -152,6 +177,11 @@ function waitForCallback() {
     const server = http.createServer((req, res) => {
       try {
         const url = new URL(req.url, 'http://127.0.0.1:8888')
+        if (url.pathname !== '/callback') {
+          res.writeHead(404, { 'Content-Type': 'text/plain' })
+          res.end('Not found')
+          return
+        }
         const code = url.searchParams.get('code')
         const error = url.searchParams.get('error')
 
