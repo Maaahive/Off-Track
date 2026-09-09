@@ -3108,7 +3108,7 @@ async function loadLyricsForCurrentTrack(explicitTrack = null) {
   }
 
   if (lyricsSongTitle) {
-    lyricsSongTitle.innerText = artist ? `${title} • ${artist}` : title;
+    lyricsSongTitle.innerText = title;
     lyricsSongTitle.title = artist ? `${title} - ${artist}` : title;
   }
 
@@ -3218,10 +3218,21 @@ function adjustLyricsOffset(deltaMs) {
   const sec = (userManualLyricOffsetMs / 1000).toFixed(1);
   const sign = userManualLyricOffsetMs > 0 ? `+${sec}` : `${sec}`;
   showToast(`⏱️ Lyrics Sync: ${sign}s`, 900);
+
+  // User explicitly nudged sync offset: re-enable auto-scroll and immediately re-evaluate
+  userHasScrolledLyrics = false;
+
+  const currentMs = (isSpotifySyncing && spotifyPlaybackAnchor && spotifyPlaybackAnchor.isPlaying)
+    ? (spotifyPlaybackAnchor.progressMs + (Date.now() - spotifyPlaybackAnchor.updatedAt))
+    : (currentPlaybackTime * 1000);
+
+  if (currentMs >= 0) {
+    syncLyricsProgress(currentMs, true);
+  }
 }
 window.adjustLyricsOffset = adjustLyricsOffset;
 
-function syncLyricsProgress(currentMs) {
+function syncLyricsProgress(currentMs, force = false) {
   if (!currentLyricsLines || currentLyricsLines.length === 0) return;
 
   const effectiveMs = currentMs - userManualLyricOffsetMs;
@@ -3249,6 +3260,11 @@ function syncLyricsProgress(currentMs) {
     if (prevEl) prevEl.innerText = prevText;
     if (miniLyricEl && currentText) {
       miniLyricEl.innerText = `🎤 ${currentText}`;
+      if (force) {
+        miniLyricEl.classList.remove('pulse-sync');
+        void miniLyricEl.offsetWidth;
+        miniLyricEl.classList.add('pulse-sync');
+      }
     }
     if (nextEl) nextEl.innerText = nextText;
   }
@@ -3259,31 +3275,37 @@ function syncLyricsProgress(currentMs) {
   const lyricsScrollContainer = document.getElementById('lyrics-scroll-container');
   if (!lyricsLinesContainer) return;
 
-  if (newIndex !== activeLyricIndex && newIndex !== -1) {
+  if (newIndex !== -1 && (force || newIndex !== activeLyricIndex)) {
     activeLyricIndex = newIndex;
 
     const allLines = lyricsLinesContainer.querySelectorAll('.lyrics-line');
+    let activeEl = null;
     allLines.forEach((el, idx) => {
       if (idx === activeLyricIndex) {
         el.classList.add('active');
+        activeEl = el;
       } else {
         el.classList.remove('active');
+        el.classList.remove('pulse-sync');
       }
     });
 
+    if (activeEl && force) {
+      activeEl.classList.remove('pulse-sync');
+      void activeEl.offsetWidth;
+      activeEl.classList.add('pulse-sync');
+    }
+
     // Auto-scroll active line to center unless user is manually scrolling
-    if (!userHasScrolledLyrics && lyricsScrollContainer) {
-      const activeEl = allLines[activeLyricIndex];
-      if (activeEl) {
-        const containerHeight = lyricsScrollContainer.clientHeight;
-        const lineTop = activeEl.offsetTop;
-        const lineHeight = activeEl.clientHeight;
-        const targetScroll = lineTop - (containerHeight / 2) + (lineHeight / 2);
-        lyricsScrollContainer.scrollTo({
-          top: Math.max(0, targetScroll),
-          behavior: 'smooth'
-        });
-      }
+    if ((force || !userHasScrolledLyrics) && lyricsScrollContainer && activeEl) {
+      const containerHeight = lyricsScrollContainer.clientHeight;
+      const lineTop = activeEl.offsetTop;
+      const lineHeight = activeEl.clientHeight;
+      const targetScroll = lineTop - (containerHeight / 2) + (lineHeight / 2);
+      lyricsScrollContainer.scrollTo({
+        top: Math.max(0, targetScroll),
+        behavior: 'smooth'
+      });
     }
   }
 }
