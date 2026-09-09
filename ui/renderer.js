@@ -1759,6 +1759,32 @@ if (toggleDarkText) {
   });
 }
 
+// ─── Mini Lyrics Under Title Option ─────────────────────────────────────────
+const toggleHomeMiniLyrics = document.getElementById('toggle-home-mini-lyrics');
+const liveMiniLyricBox = document.getElementById('live-mini-lyric-box');
+let isHomeMiniLyricsEnabled = localStorage.getItem('homeMiniLyricsEnabled') !== 'false';
+
+function applyHomeMiniLyrics(enabled) {
+  isHomeMiniLyricsEnabled = enabled;
+  localStorage.setItem('homeMiniLyricsEnabled', enabled ? 'true' : 'false');
+  if (liveMiniLyricBox) {
+    liveMiniLyricBox.style.display = enabled ? 'block' : 'none';
+  }
+  if (toggleHomeMiniLyrics) {
+    toggleHomeMiniLyrics.checked = enabled;
+  }
+}
+
+applyHomeMiniLyrics(isHomeMiniLyricsEnabled);
+
+if (toggleHomeMiniLyrics) {
+  toggleHomeMiniLyrics.checked = isHomeMiniLyricsEnabled;
+  toggleHomeMiniLyrics.addEventListener('change', (e) => {
+    applyHomeMiniLyrics(e.target.checked);
+    showToast(e.target.checked ? '🎤 Mini lyrics shown on home' : '🎤 Mini lyrics hidden');
+  });
+}
+
 // ─── Spotify Live Sync ───────────────────────────────────────────────────────
 const btnSpotifySync = document.getElementById('btn-spotify-sync');
 const toggleSpotifySyncSetting = document.getElementById('toggle-spotify-sync-setting');
