@@ -144,6 +144,27 @@ npm start
 
 ---
 
+## 🔄 Updating to the Latest Version
+
+Whenever new features, design updates, or fixes are pushed, updating your local setup takes seconds:
+
+### 🖱️ Option A: 1-Click Update (Recommended)
+Simply double-click **`Update-OffTrack.bat`** in the project folder.  
+It will:
+1. Automatically pull the latest updates (`git pull origin main`).
+2. Verify dependencies (`npm install`).
+3. Relaunch **OffTrack** for you smoothly!
+
+### 💻 Option B: Update via Terminal
+Run the following in your project directory:
+```bash
+git pull origin main
+npm install
+npm start
+```
+
+---
+
 ## 🔑 (Optional) Spotify Developer Credentials
 
 To sync your private Spotify library and enable two-way live casting:
