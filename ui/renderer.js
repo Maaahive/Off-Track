@@ -253,7 +253,15 @@ safeOn('btn-playlist', 'click', async (e) => {
   menu.innerHTML = ''
   if (typeof syncSavedSpotifyPlaylists === 'function') syncSavedSpotifyPlaylists();
   
-  const saved = JSON.parse(localStorage.getItem('savedPlaylists') || '[]');
+  let saved = JSON.parse(localStorage.getItem('savedPlaylists') || '[]');
+  // Sanitize and filter out corrupt or ghost empty items
+  saved = saved.filter(pl => pl && typeof pl === 'object' && ((pl.name && pl.name.trim()) || pl.id || (Array.isArray(pl.tracks) && pl.tracks.length > 0)));
+  saved.forEach(pl => {
+    if (!pl.name || !pl.name.trim()) {
+      pl.name = 'Saved Playlist';
+    }
+  });
+  localStorage.setItem('savedPlaylists', JSON.stringify(saved));
   
   if (res.status === 'not_connected') {
     const msg = document.createElement('div')
@@ -344,22 +352,27 @@ safeOn('btn-playlist', 'click', async (e) => {
 
     saved.forEach((pl, index) => {
       const itemContainer = document.createElement('div')
-      itemContainer.className = 'playlist-item-container track-item'
+      itemContainer.className = 'playlist-item-container'
       itemContainer.style.display = 'flex'
       itemContainer.style.alignItems = 'center'
       itemContainer.style.justifyContent = 'space-between'
       itemContainer.style.borderRadius = '4px'
-      itemContainer.style.paddingRight = '8px'
+      itemContainer.style.padding = '1px 4px'
       
+      const displayName = (pl.name && pl.name.trim()) || 'Saved Playlist';
+
       const a = document.createElement('a')
       a.href = '#'
-      a.className = 'playlist-item'
+      a.className = 'track-item playlist-item'
       a.style.display = 'block'
       a.style.textDecoration = 'none'
       a.style.color = 'inherit'
       a.style.flex = '1'
-      a.innerText = pl.name
-      a.dataset.name = pl.name
+      a.style.overflow = 'hidden'
+      a.style.textOverflow = 'ellipsis'
+      a.style.whiteSpace = 'nowrap'
+      a.innerText = displayName
+      a.dataset.name = displayName
       
       a.onclick = (ev) => {
         ev.preventDefault()
@@ -368,7 +381,7 @@ safeOn('btn-playlist', 'click', async (e) => {
         apn.innerText = a.dataset.name
         apn.title = a.dataset.name
         apn.style.display = 'inline-block'
-        openPlaylistSidebar(pl.id, pl.name, pl.tracks)
+        openPlaylistSidebar(pl.id, displayName, pl.tracks)
       }
       
       const delBtn = document.createElement('button')
@@ -378,7 +391,7 @@ safeOn('btn-playlist', 'click', async (e) => {
       delBtn.style.color = 'rgba(255,95,86,0.6)'
       delBtn.style.cursor = 'pointer'
       delBtn.style.fontSize = '12px'
-      delBtn.style.padding = '4px'
+      delBtn.style.padding = '4px 6px'
       delBtn.style.lineHeight = '1'
       delBtn.title = 'Delete saved playlist'
       
@@ -387,8 +400,9 @@ safeOn('btn-playlist', 'click', async (e) => {
       
       delBtn.onclick = (ev) => {
         ev.stopPropagation()
-        saved.splice(index, 1)
-        localStorage.setItem('savedPlaylists', JSON.stringify(saved))
+        const currentSaved = JSON.parse(localStorage.getItem('savedPlaylists') || '[]')
+        const updatedSaved = currentSaved.filter((_, i) => i !== index)
+        localStorage.setItem('savedPlaylists', JSON.stringify(updatedSaved))
         menu.style.display = 'none'
         document.getElementById('btn-playlist').click()
       }
