@@ -100,17 +100,19 @@ export async function authCommand() {
 
 export function formatSpotifyAuthError(err) {
   if (!err) return 'Unknown authentication error'
+  if (err.statusCode === 403) {
+    return 'Active Spotify Premium subscription required by Spotify API for library sync.'
+  }
   if (err.body) {
-    if (typeof err.body === 'string') return err.body
+    if (typeof err.body === 'string' && err.body.trim()) return err.body
     if (err.body.error_description) return err.body.error_description
     if (err.body.message) return err.body.message
     if (err.body.error) {
       return typeof err.body.error === 'string' ? err.body.error : (err.body.error.message || JSON.stringify(err.body.error))
     }
-    return JSON.stringify(err.body)
   }
   if (err.message && err.message !== '[object Object]') return err.message
-  return String(err)
+  return 'Spotify API access error (Status 403 / Forbidden).'
 }
 
 export async function electronAuthCommand(openUrlFn) {

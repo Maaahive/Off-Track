@@ -267,8 +267,9 @@ safeOn('btn-playlist', 'click', async (e) => {
     menu.appendChild(msg)
   } else if (res.status === 'error') {
     const msg = document.createElement('div')
-    msg.style = 'padding: 8px; color: #ff5f56; font-size: 12px; margin-bottom: 8px;'
-    msg.innerText = `Error: ${res.message}`
+    msg.style = 'padding: 8px 10px; color: #ffca28; font-size: 11px; line-height: 1.4; margin-bottom: 8px; background: rgba(255, 170, 0, 0.08); border-radius: 6px; border: 1px solid rgba(255, 170, 0, 0.2);'
+    const errorText = (res.message && res.message !== '[object Object]') ? res.message : 'Spotify Premium required by API for library sync. Use "+ Add Playlist URL" below!';
+    msg.innerHTML = `⚠️ <strong>Library Sync:</strong><br>${errorText}`
     menu.appendChild(msg)
   }
 

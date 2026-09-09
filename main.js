@@ -1047,7 +1047,8 @@ ipcMain.handle('get-playlists', async () => {
       }
       return result
     } catch (err) {
-      return { status: 'error', message: err.message }
+      const msg = formatSpotifyAuthError(err)
+      return { status: 'error', message: msg }
     }
   }
 
