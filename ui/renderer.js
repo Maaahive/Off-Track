@@ -30,7 +30,11 @@ function showToast(msg, duration = 3000) {
 
 safeOn('btn-prev', 'click', () => {
   if (isSpotifySyncing) {
-    window.api.spotifyRemotePrev();
+    if (typeof currentPlaybackTime === 'number' && currentPlaybackTime > 4) {
+      window.api.spotifyRemoteSeek(0);
+    } else {
+      window.api.spotifyRemotePrev();
+    }
   } else if (typeof currentPlaybackTime === 'number' && currentPlaybackTime > 4) {
     seekRelative(-currentPlaybackTime);
   } else {
@@ -38,15 +42,13 @@ safeOn('btn-prev', 'click', () => {
   }
 });
 safeOn('btn-next', 'click', async () => {
-  if (isSpotifySyncing) {
+  const queue = await window.api.getQueue();
+  if (queue && queue.length > 0) {
+    window.api.nextSong();
+  } else if (isSpotifySyncing) {
     window.api.spotifyRemoteNext();
   } else {
-    const queue = await window.api.getQueue();
-    if (queue && queue.length > 0) {
-      window.api.nextSong();
-    } else {
-      seekRelative(15);
-    }
+    seekRelative(15);
   }
 });
 

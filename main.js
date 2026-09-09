@@ -195,8 +195,11 @@ let currentTrack = null
 let currentPlayToken = 0
 let preloadedNextTrack = null
 let preloadToken = 0
+let spotifyAutoAdvanceTimer = null
+let hasAutoAdvancedSpotify = false
 
 async function preloadNext() {
+  if (spotifySyncActive) return
   if (playQueue.length === 0) return
   const nextQuery = playQueue[0]
   if (preloadedNextTrack && preloadedNextTrack.query === nextQuery) return
@@ -311,11 +314,107 @@ async function playTrack(query, startTimeSeconds = 0) {
   }
 }
 
+async function playOnSpotify(query) {
+  const cleanQuery = (query || '').replace(/\|DURATION:\d+/gi, '').trim()
+  console.log(`[SpotifySync] Searching and playing on Spotify: "${cleanQuery}"`)
+  const spotify = await safeGetSpotifyClient()
+  if (!spotify) {
+    console.warn('[SpotifySync] Spotify client not available, falling back to YouTube')
+    playTrack(query)
+    return { success: true }
+  }
+
+  try {
+    const searchRes = await spotify.searchTracks(cleanQuery, { limit: 5 })
+    if (searchRes && searchRes.body && searchRes.body.tracks && searchRes.body.tracks.items.length > 0) {
+      const item = searchRes.body.tracks.items[0]
+      const devRes = await spotify.getMyDevices().catch(() => null)
+      const devices = (devRes && devRes.body && devRes.body.devices) || []
+      let targetDevice = devices.find(d => d.is_active) || devices[0]
+
+      if (!targetDevice) {
+        launchSpotifySilent()
+        await new Promise(r => setTimeout(r, 1200))
+        const retryDev = await spotify.getMyDevices().catch(() => null)
+        const retryDevices = (retryDev && retryDev.body && retryDev.body.devices) || []
+        targetDevice = retryDevices.find(d => d.is_active) || retryDevices[0]
+      }
+
+      const playOpts = { uris: [item.uri] }
+      if (targetDevice) playOpts.device_id = targetDevice.id
+      await spotify.play(playOpts)
+
+      const durationSec = Math.floor((item.duration_ms || 0) / 1000)
+      const mins = Math.floor(durationSec / 60)
+      const secs = durationSec % 60
+      const durationStr = `${mins}:${secs < 10 ? '0' : ''}${secs}`
+
+      currentTrack = {
+        title: item.name,
+        artist: item.artists ? item.artists.map(a => a.name).join(', ') : 'Spotify',
+        albumArt: item.album && item.album.images && item.album.images[0] ? item.album.images[0].url : '',
+        durationSeconds: durationSec,
+        durationStr,
+        query,
+        id: item.id,
+        uri: item.uri,
+        fromSpotify: true
+      }
+
+      lastSpotifyTrack = {
+        ...currentTrack,
+        progressSeconds: 0,
+        progressMs: 0,
+        isPlaying: true
+      }
+      lastSpotifyProgressSec = 0
+      hasAutoAdvancedSpotify = false
+
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('native-audio-cmd-stop')
+        mainWindow.webContents.send('track-started', {
+          ...currentTrack,
+          initialProgressSeconds: 0
+        })
+      }
+
+      setTimeout(pollSpotifyPlayback, 400)
+      return { success: true, fromSpotify: true }
+    } else {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('toast', `⚠️ "${cleanQuery}" not found on Spotify, trying YouTube...`)
+      }
+    }
+  } catch (err) {
+    console.warn('[SpotifySync] Search/play on Spotify error:', err.message)
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('toast', `⚠️ Spotify playback error, trying YouTube...`)
+    }
+  }
+
+  playTrack(query)
+  return { success: true }
+}
+
+function playSongUnified(query) {
+  if (spotifySyncActive) {
+    return playOnSpotify(query)
+  } else {
+    return playTrack(query)
+  }
+}
+
 function handleNextSong() {
-  console.log(`[handleNextSong] Queue remaining: ${playQueue.length}, looping: ${isLooping}`)
+  console.log(`[handleNextSong] Queue remaining: ${playQueue.length}, looping: ${isLooping}, spotifySync: ${spotifySyncActive}`)
+  if (spotifyAutoAdvanceTimer) {
+    clearTimeout(spotifyAutoAdvanceTimer)
+    spotifyAutoAdvanceTimer = null
+  }
+  hasAutoAdvancedSpotify = false
+
   if (isLooping && currentTrack) {
     // Replay current track
-    playTrack(currentTrack.query)
+    playSongUnified(currentTrack.query)
     return
   }
   if (currentTrack) playHistory.push(currentTrack.query)
@@ -324,7 +423,7 @@ function handleNextSong() {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('queue-updated', playQueue)
     }
-    playTrack(nextQuery)
+    playSongUnified(nextQuery)
   } else {
     currentTrack = null
     console.log('[handleNextSong] Queue empty, playback finished.')
@@ -336,14 +435,20 @@ function handleNextSong() {
 }
 
 function handlePrevSong() {
+  if (spotifyAutoAdvanceTimer) {
+    clearTimeout(spotifyAutoAdvanceTimer)
+    spotifyAutoAdvanceTimer = null
+  }
+  hasAutoAdvancedSpotify = false
+
   if (playHistory.length > 0) {
     if (currentTrack) playQueue.unshift(currentTrack.query)
     const prevQuery = playHistory.pop()
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('queue-updated', playQueue)
     }
-    playTrack(prevQuery)
-  } else if (currentTrack && mainWindow && !mainWindow.isDestroyed()) {
+    playSongUnified(prevQuery)
+  } else if (currentTrack && !spotifySyncActive && mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('native-audio-cmd-seek', 0)
   }
 }
@@ -1039,38 +1144,20 @@ ipcMain.handle('fetch-playlist-url', async (event, url) => {
 // ─── Playback Controls IPC ───────────────────────────────────────────────────
 
 ipcMain.handle('search-song', async (event, query) => {
-  if (spotifySyncActive) {
-    console.log(`[SpotifySync] Searching and playing on Spotify: "${query}"`)
-    const spotify = await safeGetSpotifyClient()
-    if (spotify) {
-      try {
-        const searchRes = await spotify.searchTracks(query, { limit: 5 })
-        if (searchRes && searchRes.body && searchRes.body.tracks && searchRes.body.tracks.items.length > 0) {
-          const item = searchRes.body.tracks.items[0]
-          const devRes = await spotify.getMyDevices()
-          const devices = (devRes && devRes.body && devRes.body.devices) || []
-          const targetDevice = devices.find(d => d.is_active) || devices[0]
-          
-          const playOpts = { uris: [item.uri] }
-          if (targetDevice) playOpts.device_id = targetDevice.id
-          await spotify.play(playOpts)
-          
-          setTimeout(pollSpotifyPlayback, 300)
-          return { success: true, fromSpotify: true }
-        } else {
-          if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('toast', `⚠️ Not found on Spotify, searching YouTube...`)
-          }
-        }
-      } catch (err) {
-        console.warn('[SpotifySync] Search on Spotify error:', err.message)
-      }
-    }
+  if (spotifyAutoAdvanceTimer) {
+    clearTimeout(spotifyAutoAdvanceTimer)
+    spotifyAutoAdvanceTimer = null
   }
+  hasAutoAdvancedSpotify = false
 
   if (currentTrack && (!playHistory.length || playHistory[playHistory.length - 1] !== currentTrack.query)) {
     playHistory.push(currentTrack.query)
   }
+
+  if (spotifySyncActive) {
+    return await playOnSpotify(query)
+  }
+
   playTrack(query)
   return { success: true }
 })
@@ -1133,7 +1220,15 @@ ipcMain.handle('set-queue', (event, newQueue) => {
 })
 
 ipcMain.handle('next-song', async () => {
+  if (spotifyAutoAdvanceTimer) {
+    clearTimeout(spotifyAutoAdvanceTimer)
+    spotifyAutoAdvanceTimer = null
+  }
   if (spotifySyncActive) {
+    if (playQueue.length > 0 || isLooping) {
+      handleNextSong()
+      return
+    }
     const spotify = await safeGetSpotifyClient()
     if (spotify) {
       try { await spotify.skipToNext() } catch (e) {}
@@ -1148,7 +1243,15 @@ ipcMain.handle('next-song', async () => {
 })
 
 ipcMain.handle('prev-song', async () => {
+  if (spotifyAutoAdvanceTimer) {
+    clearTimeout(spotifyAutoAdvanceTimer)
+    spotifyAutoAdvanceTimer = null
+  }
   if (spotifySyncActive) {
+    if (playHistory.length > 0) {
+      handlePrevSong()
+      return
+    }
     const spotify = await safeGetSpotifyClient()
     if (spotify) {
       try { await spotify.skipToPrevious() } catch (e) {}
@@ -1200,7 +1303,14 @@ ipcMain.handle('toggle-play', async () => {
         if (state && state.body && state.body.is_playing) {
           await spotify.pause()
         } else {
-          await spotify.play()
+          try {
+            await spotify.play()
+          } catch (playErr) {
+            if (playQueue.length > 0) {
+              handleNextSong()
+              return
+            }
+          }
         }
         setTimeout(pollSpotifyPlayback, 400)
       } catch (e) {}
@@ -1236,7 +1346,7 @@ let isSpotifyPolling = false
 function scheduleNextSpotifyPoll() {
   if (spotifySyncTimer) clearTimeout(spotifySyncTimer)
   if (spotifySyncActive) {
-    spotifySyncTimer = setTimeout(pollSpotifyPlayback, 1500)
+    spotifySyncTimer = setTimeout(pollSpotifyPlayback, 1200)
   }
 }
 
@@ -1251,8 +1361,61 @@ async function pollSpotifyPlayback() {
     if (res && res.body && res.body.item) {
       const item = res.body.item
       const isPlaying = res.body.is_playing
-      const progressSec = Math.floor((res.body.progress_ms || 0) / 1000)
-      const durationSec = Math.floor((item.duration_ms || 0) / 1000)
+      const progressMs = res.body.progress_ms || 0
+      const durationMs = item.duration_ms || 0
+      const progressSec = Math.floor(progressMs / 1000)
+      const durationSec = Math.floor(durationMs / 1000)
+
+      // If track changed on Spotify (e.g. natural advance or user clicked track in Spotify app)
+      if (lastSpotifyTrack && lastSpotifyTrack.id !== item.id) {
+        const prevDuration = lastSpotifyTrack.durationSeconds || 0
+        const prevProgress = lastSpotifyProgressSec || 0
+        const prevReachedEnd = prevDuration > 0 && prevProgress >= (prevDuration - 4)
+
+        if (prevReachedEnd && !hasAutoAdvancedSpotify && (playQueue.length > 0 || isLooping)) {
+          console.log('[SpotifySync] Track finished naturally and Spotify moved track. Advancing OffTrack queue...')
+          hasAutoAdvancedSpotify = true
+          handleNextSong()
+          return
+        }
+
+        hasAutoAdvancedSpotify = false
+        if (spotifyAutoAdvanceTimer) {
+          clearTimeout(spotifyAutoAdvanceTimer)
+          spotifyAutoAdvanceTimer = null
+        }
+      }
+
+      // Check if paused at track end
+      const isNearEnd = (durationSec > 0 && progressSec >= durationSec - 2) || (lastSpotifyProgressSec > 0 && lastSpotifyProgressSec >= durationSec - 3)
+      if (!isPlaying && lastSpotifyTrack && lastSpotifyTrack.isPlaying && isNearEnd && !hasAutoAdvancedSpotify) {
+        if (playQueue.length > 0 || isLooping) {
+          console.log('[SpotifySync] Track reached end and paused. Advancing queue...')
+          hasAutoAdvancedSpotify = true
+          handleNextSong()
+          return
+        }
+      }
+
+      // If playing and within 2.5s of end, schedule seamless advance
+      const remainingMs = durationMs - progressMs
+      if (isPlaying && remainingMs > 0 && remainingMs <= 2500 && !hasAutoAdvancedSpotify && (playQueue.length > 0 || isLooping)) {
+        if (!spotifyAutoAdvanceTimer) {
+          console.log(`[SpotifySync] Scheduling queue advance in ${remainingMs + 300}ms`)
+          spotifyAutoAdvanceTimer = setTimeout(() => {
+            spotifyAutoAdvanceTimer = null
+            if (spotifySyncActive && !hasAutoAdvancedSpotify && (playQueue.length > 0 || isLooping)) {
+              console.log('[SpotifySync] Auto-advance timer fired. Advancing queue...')
+              hasAutoAdvancedSpotify = true
+              handleNextSong()
+            }
+          }, remainingMs + 300)
+        }
+      } else if (!isPlaying && spotifyAutoAdvanceTimer) {
+        clearTimeout(spotifyAutoAdvanceTimer)
+        spotifyAutoAdvanceTimer = null
+      }
+
       lastSpotifyProgressSec = progressSec
 
       const mins = Math.floor(durationSec / 60)
@@ -1267,7 +1430,7 @@ async function pollSpotifyPlayback() {
         durationSeconds: durationSec,
         durationStr,
         progressSeconds: progressSec,
-        progressMs: res.body.progress_ms || (progressSec * 1000),
+        progressMs: progressMs,
         isPlaying,
         fromSpotify: true
       }
@@ -1276,6 +1439,21 @@ async function pollSpotifyPlayback() {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('spotify-sync-update', track)
       }
+    } else {
+      if (lastSpotifyTrack && lastSpotifyTrack.isPlaying && !hasAutoAdvancedSpotify) {
+        const prevDuration = lastSpotifyTrack.durationSeconds || 0
+        const prevProgress = lastSpotifyProgressSec || 0
+        if (prevDuration > 0 && prevProgress >= (prevDuration - 4)) {
+          if (playQueue.length > 0 || isLooping) {
+            console.log('[SpotifySync] Playback stopped at end of track. Advancing queue...')
+            hasAutoAdvancedSpotify = true
+            handleNextSong()
+            return
+          }
+        }
+      }
+      lastSpotifyTrack = null
+      lastSpotifyProgressSec = 0
     }
   } catch (_) {
   } finally {
@@ -1464,6 +1642,11 @@ async function setSpotifySync(enabled) {
       clearTimeout(spotifySyncTimer)
       spotifySyncTimer = null
     }
+    if (spotifyAutoAdvanceTimer) {
+      clearTimeout(spotifyAutoAdvanceTimer)
+      spotifyAutoAdvanceTimer = null
+    }
+    hasAutoAdvancedSpotify = false
 
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('spotify-sync-status-changed', false)
@@ -1538,12 +1721,28 @@ ipcMain.handle('spotify-remote-play-pause', async () => {
 })
 
 ipcMain.handle('spotify-remote-next', async () => {
+  if (spotifyAutoAdvanceTimer) {
+    clearTimeout(spotifyAutoAdvanceTimer)
+    spotifyAutoAdvanceTimer = null
+  }
+  if (playQueue.length > 0 || isLooping) {
+    handleNextSong()
+    return
+  }
   const spotify = await safeGetSpotifyClient()
   if (!spotify) return
   try { await spotify.skipToNext() } catch (e) {}
 })
 
 ipcMain.handle('spotify-remote-prev', async () => {
+  if (spotifyAutoAdvanceTimer) {
+    clearTimeout(spotifyAutoAdvanceTimer)
+    spotifyAutoAdvanceTimer = null
+  }
+  if (playHistory.length > 0) {
+    handlePrevSong()
+    return
+  }
   const spotify = await safeGetSpotifyClient()
   if (!spotify) return
   try { await spotify.skipToPrevious() } catch (e) {}
