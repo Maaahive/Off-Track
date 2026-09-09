@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron')
 // ─── Windows Native In-Window Audio Engine ───────────────────────────────────
 // Built-in HTML5 Audio player running directly inside Chromium
 let nativeAudio = null
+let hasTriggeredEnded = false
 
 function getAudio() {
   if (!nativeAudio) {
@@ -11,10 +12,17 @@ function getAudio() {
 
     nativeAudio.addEventListener('timeupdate', () => {
       const t = nativeAudio.currentTime
+      const d = nativeAudio.duration
       // Dispatch directly in-process (zero IPC latency) for lyrics sync
       window.dispatchEvent(new CustomEvent('native-audio-timeupdate', { detail: t }))
       // Also send to main process for progress bar / other tracking
       ipcRenderer.send('native-audio-time', t)
+
+      // Reliable end detection for streaming audio
+      if (d > 0 && t >= d - 0.5 && !hasTriggeredEnded) {
+        hasTriggeredEnded = true
+        ipcRenderer.send('native-audio-ended')
+      }
     })
 
     nativeAudio.addEventListener('play', () => {
@@ -22,11 +30,20 @@ function getAudio() {
     })
 
     nativeAudio.addEventListener('pause', () => {
+      // If paused right at the end of the track, trigger natural ended
+      if (nativeAudio.duration > 0 && nativeAudio.currentTime >= nativeAudio.duration - 0.8 && !hasTriggeredEnded) {
+        hasTriggeredEnded = true
+        ipcRenderer.send('native-audio-ended')
+        return
+      }
       ipcRenderer.send('native-audio-state', true)
     })
 
     nativeAudio.addEventListener('ended', () => {
-      ipcRenderer.send('native-audio-ended')
+      if (!hasTriggeredEnded) {
+        hasTriggeredEnded = true
+        ipcRenderer.send('native-audio-ended')
+      }
     })
 
     nativeAudio.addEventListener('error', (e) => {
@@ -39,6 +56,7 @@ function getAudio() {
 
 // Commands from main.js to the audio element
 ipcRenderer.on('native-audio-cmd-play', (_, { streamUrl, startTime }) => {
+  hasTriggeredEnded = false
   const audio = getAudio()
   if (audio.src !== streamUrl) {
     audio.pause()
@@ -73,6 +91,9 @@ ipcRenderer.on('native-audio-cmd-toggle-pause', () => {
 
 ipcRenderer.on('native-audio-cmd-seek', (_, seconds) => {
   const audio = getAudio()
+  if (seconds < (audio.duration || 100) - 1.5) {
+    hasTriggeredEnded = false
+  }
   audio.currentTime = seconds
 })
 

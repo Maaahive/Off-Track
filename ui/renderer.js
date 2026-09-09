@@ -588,18 +588,15 @@ function renderSidebarTracks(tracks) {
       showToast(`🔍 Searching: "${t.name}"...`);
       window.api.searchSong(query);
       
-      if (!isQueueMode) {
-        window.api.clearQueue().then(renderQueue);
-      } else {
-        const newQueueItems = [];
-        for (let j = i + 1; j < tracks.length; j++) {
-          const nextTrack = tracks[j];
-          let nq = `${nextTrack.name} by ${nextTrack.artist}`;
-          if (nextTrack.duration_ms) nq += `|DURATION:${nextTrack.duration_ms}`;
-          newQueueItems.push(nq);
-        }
-        window.api.setQueue(newQueueItems).then(renderQueue);
+      // Queue the rest of the playlist so playback continues automatically
+      const newQueueItems = [];
+      for (let j = i + 1; j < tracks.length; j++) {
+        const nextTrack = tracks[j];
+        let nq = `${nextTrack.name} by ${nextTrack.artist}`;
+        if (nextTrack.duration_ms) nq += `|DURATION:${nextTrack.duration_ms}`;
+        newQueueItems.push(nq);
       }
+      window.api.setQueue(newQueueItems).then(renderQueue);
     }
       
     tracksContainer.appendChild(d)
@@ -1544,6 +1541,7 @@ window.api.onTrackStarted((event, track) => {
   isPlaying = true
   updatePlayIcon()
   document.querySelector('.time-total').innerText = track.durationStr || '0:00'
+  renderQueue()
   
   // Handle start/resume timestamp from Spotify handoff
   const startSec = typeof track.initialProgressSeconds === 'number' ? track.initialProgressSeconds : 0;
