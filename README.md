@@ -31,9 +31,10 @@ Official desktop music players are often bloated, resource-heavy (taking 500MB�
 | **Audio Ads** | ❌ Interrupted every few songs | ❌ Video & banner ads | ✅ **100% Ad-Free Audio** |
 | **Pick Any Song On-Demand** | ❌ Forced shuffle on free tiers | ⚠️ Requires Premium for background | ✅ **Full On-Demand Control** |
 | **Music Catalog** | ⚠️ Label releases only | ✅ Large catalog | ✅ **Full YouTube + Leaks, Remakes & Live Sets** |
+| **Synchronized Lyrics** | ⚠️ Limited / requires scroll | ⚠️ Static / delayed | ✅ **Live Mini HUD + Full Click-to-Seek Karaoke** |
 | **UI Form Factor** | ❌ Giant 1GB RAM desktop window | ❌ Heavy browser tab rendering video | ✅ **Tiny Floating Frosted-Glass HUD** |
 | **Desktop Multitasking** | ❌ Covers your IDE/games | ❌ Distracting video | ✅ **Always-on-Top Translucent Overlay** |
-| **Spotify Integration** | N/A | ❌ None | ✅ **Two-Way Smart Playback Handoff** |
+| **Spotify Integration** | N/A | ❌ None | ✅ **Two-Way Smart Playback Handoff & Sync** |
 
 ---
 
@@ -43,16 +44,29 @@ Official desktop music players are often bloated, resource-heavy (taking 500MB�
 - Stream **any song, remix, live concert, unreleased leak, or lo-fi mix** from YouTube on-demand with zero video clutter and zero ads.
 - Lightweight audio extraction that saves massive bandwidth, RAM, and battery compared to running YouTube in a browser tab.
 
-### 2. 🔀 Two-Way Spotify Smart Handoff (`⚪ Sync`)
-- **OffTrack ➔ Spotify**: Listening to a track on OffTrack and want to switch to your phone or official desktop Spotify app? One click on **`⚪ Sync`** casts that exact song and seek timestamp directly into your active Spotify app!
-- **Spotify ➔ OffTrack**: Or use OffTrack as an interactive floating glass controller for whatever Spotify is playing.
+### 2. 🎤 Real-Time Synchronized Lyrics & Mini-Karaoke HUD
+- **Full Synchronized Lyrics Overlay (`Ctrl+L` or 🎤)**:
+  - Clean, distraction-free modal auto-scrolling with the active vocal line.
+  - **Click-to-Seek**: Click any lyric line to instantly jump playback to that timestamp!
+  - **On-the-Fly Micro-Sync (`-0.5s` / `+0.5s` or `[` / `]`)**: Nudge lyrics earlier or later in real time with an energetic visual pulse transition.
+- **3-Line Mini-Lyrics on Main HUD**:
+  - Displays live lyrics (previous, current, and upcoming line) directly beneath the song title on the main frosted player. Toggle it on/off with the note icon anytime.
+
+### 3. 🔀 Two-Way Spotify Smart Handoff & Live Sync (`🟢 Sync`)
+- **OffTrack ➔ Spotify**: Listening to a track on OffTrack and want to switch to your phone or official desktop Spotify app? One click on **`Sync`** casts that exact song and seek timestamp directly into your active Spotify app!
+- **Spotify ➔ OffTrack**: Playing a playlist, Daily Mix, or Blend on your official Spotify app? Turn on **`🟢 Sync`** in OffTrack to turn it into an aesthetic floating frosted-glass companion with soundwaves and synchronized lyrics.
+- **Full Library Pagination**: Seamlessly loads your full Spotify library (up to 200 playlists) in the dropdown menu.
 
 > [!IMPORTANT]
-> **Spotify Premium Required for Live Sync**: The Spotify Web API's remote playback control endpoints (`transfer`, `play`, `pause`, `seek`, `skip`) are strictly restricted by Spotify to **Spotify Premium** subscribers. If you have a Spotify Free account, Spotify's API will reject playback handoff and seeking commands. 
+> **Spotify Premium Required for Live Remote Control**: Spotify's remote playback control endpoints (`transfer`, `play`, `pause`, `seek`, `skip`) are strictly restricted by Spotify to **Spotify Premium** accounts. 
 > 
-> *Don't have Spotify Premium?* No problem! You can still import and play any public Spotify playlist URL into OffTrack, and enjoy 100% ad-free on-demand music with unlimited seeking using OffTrack's built-in player!
+> *Don't have Spotify Premium?* No problem! You can still import and play any public Spotify playlist URL into OffTrack, and enjoy 100% ad-free on-demand music with unlimited seeking using OffTrack's built-in engine!
 
-### 3. 🪟 Floating Frosted-Glass HUD (Always-On-Top)
+### 4. 📑 Smart Queue & Playlist Management
+- Dedicated **Queue Sidebar** with full upcoming track visibility, reordering, and smart auto-advancing.
+- Supports pasting any Spotify playlist link directly into the search bar or "+ Add Playlist URL" for instant listening.
+
+### 5. 🪟 Floating Frosted-Glass HUD (Always-On-Top)
 - Built for multitasking while coding, designing, or gaming — sits comfortably in the corner of your screen without window clutter.
 - Cycle through 5 transparency presets with one click (or right-click to reset):
   - **`🖼️ Original`**: 100% crisp wallpaper brightness and full image opacity.
@@ -61,19 +75,19 @@ Official desktop music players are often bloated, resource-heavy (taking 500MB�
   - **`👻 Ghost`**: 5% ultra-subtle HUD for deep work.
   - **`⬛ Solid`**: Dark minimal player.
 
-### 4. ⌨️ Global Keyboard Shortcuts & System Tray
-- Full background control with global hotkeys and built-in OS media keys (`Play/Pause`, `Next`, `Prev`).
-- Customize hotkeys in Settings or minimize cleanly to the Windows System Tray.
+### 6. ⌨️ Global Keyboard Shortcuts & System Tray
+- Full background control with global hotkeys and built-in OS media keys (`Play/Pause`, `Next`, `Prev`, Seek `±5s`, Lyrics offset `[`/`]`).
+- Minimize cleanly to the Windows System Tray or customize hotkeys in Settings.
 
-### 5. 🎨 41 Preloaded Aesthetic Album Covers & Custom Upload
+### 7. 🎨 41 Preloaded Aesthetic Album Covers & Custom Upload
 - Right-click the album cover to open the **Covers Modal**:
   - **`🎵 Auto (Song Art)`**: Dynamically pulls the official high-res artwork for the song playing.
   - **`📁 Upload Your Own`**: Set any image or wallpaper from your PC.
   - **41 Preloaded Aesthetic Covers**: Instant one-click visual presets.
 
-### 6. 🌊 Animated Audio Sound Wave & Live Search Timer
-- The progress bar isn't just a flat line — an undulating **dual-frequency sound wave** flows across the line while music is active, paired with a pulsing glowing playhead dot.
-- Searching for a track triggers a live latency ticker (`⏳ Searching... 1.2s`) and a radar sweep scanner so you always know what's happening.
+### 8. 🌊 Animated Audio Sound Wave & Live Search Scanner
+- Undulating **dual-frequency sound wave** flowing across the progress bar while music is active, paired with a glowing playhead dot.
+- Live latency ticker (`⏳ Searching... 1.2s`) with an animated radar sweep scanner during searches.
 
 ---
 
@@ -82,8 +96,9 @@ Official desktop music players are often bloated, resource-heavy (taking 500MB�
 - **Framework**: [Electron](https://www.electronjs.org/)
 - **Runtime**: [Node.js](https://nodejs.org/) (ES Modules)
 - **Audio Extraction**: [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) native stream extractor
-- **APIs**: Spotify Web API (`spotify-web-api-node`)
-- **Styling**: Pure Modern CSS with Glassmorphism, CSS Variables, and SVG Animations
+- **Lyrics Engine**: [LRCLIB](https://lrclib.net/) Synchronized Lyrics API
+- **APIs**: Spotify Web API (`spotify-web-api-node` & `spotify-url-info`)
+- **Styling**: Pure Modern CSS with Glassmorphism, CSS Variables, and Hardware-Accelerated Animations
 
 ---
 
@@ -139,7 +154,13 @@ To sync your private Spotify library and enable two-way live casting:
 
 Big shoutout to **[Saarthak Agarwal](https://www.linkedin.com/in/saarthak-agarwal-sa)** and his project **[Trak](https://github.com/Saarthak1234/trak.git)**! 
 
-The idea for OffTrack came directly from seeing what he built with Trak. I loved the concept and wanted to build my own take on a floating desktop companion — adding frosted glass transparency, two-way Spotify casting, and live soundwaves. Definitely go check out his work! 🚀
+The idea for OffTrack came directly from seeing what he built with Trak. I loved the concept and wanted to build my own take on a floating desktop companion — adding frosted glass transparency, two-way Spotify casting, real-time synchronized lyrics, and live soundwaves. Definitely go check out his work! 🚀
+
+---
+
+## ⚖️ Disclaimer
+
+OffTrack is an open-source, non-commercial educational project built for personal desktop use. It is not affiliated with, endorsed by, or partnered with Spotify AB, Google LLC, or YouTube. All trademarks, logos, and album covers belong to their respective copyright holders.
 
 ---
 
