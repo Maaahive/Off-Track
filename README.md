@@ -58,9 +58,17 @@ Official desktop music players are often bloated, resource-heavy (taking 500MB�
 - **Full Library Pagination**: Seamlessly loads your full Spotify library (up to 200 playlists) in the dropdown menu.
 
 > [!IMPORTANT]
-> **Spotify Premium Required for Live Remote Control**: Spotify's remote playback control endpoints (`transfer`, `play`, `pause`, `seek`, `skip`) are strictly restricted by Spotify to **Spotify Premium** accounts. 
+> **Spotify Premium Policy for Developer API**:
+> Per Spotify's updated Developer Platform policy, the owner of the Spotify Developer App must have an active **Spotify Premium** subscription to:
+> - Auto-sync and list private library playlists (`/v1/me/playlists`).
+> - Use remote playback handoff & controls (`play`, `pause`, `seek`, `skip`).
 > 
-> *Don't have Spotify Premium?* No problem! You can still import and play any public Spotify playlist URL into OffTrack, and enjoy 100% ad-free on-demand music with unlimited seeking using OffTrack's built-in engine!
+> If connected with a Spotify Free account, Spotify's API returns `403 Forbidden` (*"Active premium subscription required for the owner of the app"*).
+> 
+> *Don't have Spotify Premium?* **No problem at all!** You can still play **any** Spotify playlist:
+> 1. Click **`+ Add Playlist URL`** in the playlist menu, or paste any Spotify playlist link directly into the search bar.
+> 2. OffTrack extracts the entire tracklist and saves it locally.
+> 3. Enjoy 100% ad-free on-demand streaming with unlimited seeking using OffTrack's built-in engine!
 
 ### 4. 📑 Smart Queue & Playlist Management
 - Dedicated **Queue Sidebar** with full upcoming track visibility, reordering, and smart auto-advancing.
@@ -145,8 +153,8 @@ To sync your private Spotify library and enable two-way live casting:
 4. In OffTrack, open **Settings** (`Ctrl+Shift+S`) ➔ **Account** ➔ enter your `Client ID` and `Client Secret` ➔ click **Login**.
 
 > [!NOTE]
-> - **Spotify Premium Required for Live Sync**: Remote playback control (`play`, `pause`, `seek`, `skip`) requires a Spotify Premium account per Spotify's official Web API policy.
-> - **Zero Login Option**: You do **NOT** need a Spotify account to use OffTrack! You can search and stream any song on-demand ad-free, or paste public Spotify playlist links directly into the search bar without logging in.
+> - **Spotify Premium Policy for Developer API**: Spotify's API requires an active Spotify Premium subscription on the Developer App owner's account for library fetching (`/v1/me/playlists`) and remote playback handoff (`/v1/me/player`). Free accounts receive `403 Forbidden` from Spotify's servers.
+> - **Zero Login / Free-Tier Friendly**: You do **NOT** need a Spotify Premium or Developer account to use OffTrack! You can search and stream any song on-demand 100% ad-free, or paste any Spotify playlist URL into **`+ Add Playlist URL`** or the search bar without logging in!
 
 ---
 
