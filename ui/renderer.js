@@ -982,12 +982,15 @@ if (window) window.addEventListener('keydown', (e) => {
     } else if (!hasModifiers && e.key === 'ArrowLeft') {
       e.preventDefault();
       seekRelative(-5);
-    } else if (e.key === 'MediaTrackNext' || (hasModifiers && e.shiftKey && e.key === 'ArrowRight')) {
-      e.preventDefault();
-      window.api.nextSong();
-    } else if (e.key === 'MediaTrackPrevious' || (hasModifiers && e.shiftKey && e.key === 'ArrowLeft')) {
+    } else if (!hasModifiers && (e.key === 'MediaTrackPrevious' || (e.shiftKey && e.key === 'ArrowLeft'))) {
       e.preventDefault();
       window.api.prevSong();
+    } else if (!hasModifiers && e.key === '[') {
+      e.preventDefault();
+      adjustLyricsOffset(-500);
+    } else if (!hasModifiers && e.key === ']') {
+      e.preventDefault();
+      adjustLyricsOffset(500);
     }
     // ──────────────────────────────────────────────────────────────────
 
@@ -3016,10 +3019,21 @@ function parseLRC(lrcText) {
   const result = [];
   const timeRegex = /\[(\d{2}):(\d{2})(?:\.(\d{2,3}))?\]/g;
 
+  // Check for standard LRC [offset: +/-ms] tag
+  let offsetMs = 0;
+  for (const line of lines) {
+    const offMatch = line.trim().match(/^\[offset:\s*([+-]?\d+)\]/i);
+    if (offMatch) {
+      offsetMs = parseInt(offMatch[1], 10) || 0;
+    }
+  }
+
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed) continue;
-    
+    // Skip LRC metadata header tags (e.g. [ar:...], [ti:...], [offset:...])
+    if (/^\[(ti|ar|al|by|offset|length|re|ve):/i.test(trimmed)) continue;
+
     // Find all timestamp tags on this line
     let match;
     const timestamps = [];
@@ -3036,7 +3050,7 @@ function parseLRC(lrcText) {
     if (text) {
       if (timestamps.length > 0) {
         for (const t of timestamps) {
-          result.push({ timeMs: t, text });
+          result.push({ timeMs: Math.max(0, t + offsetMs), text });
         }
       } else {
         result.push({ timeMs: null, text });
@@ -3097,6 +3111,8 @@ async function loadLyricsForCurrentTrack(explicitTrack = null) {
     lyricsSongTitle.innerText = artist ? `${title} • ${artist}` : title;
     lyricsSongTitle.title = artist ? `${title} - ${artist}` : title;
   }
+
+  userManualLyricOffsetMs = 0;
 
   if (lyricsLinesContainer) {
     lyricsLinesContainer.innerHTML = '<div class="lyrics-placeholder">⏳ Fetching synchronized lyrics...</div>';
@@ -3194,16 +3210,29 @@ function renderLyricsUI() {
   });
 }
 
+let userManualLyricOffsetMs = 0;
+
+function adjustLyricsOffset(deltaMs) {
+  // deltaMs: negative shifts lyrics earlier, positive shifts lyrics later
+  userManualLyricOffsetMs += deltaMs;
+  const sec = (userManualLyricOffsetMs / 1000).toFixed(1);
+  const sign = userManualLyricOffsetMs > 0 ? `+${sec}` : `${sec}`;
+  showToast(`⏱️ Lyrics Sync: ${sign}s`, 900);
+}
+window.adjustLyricsOffset = adjustLyricsOffset;
+
 function syncLyricsProgress(currentMs) {
   if (!currentLyricsLines || currentLyricsLines.length === 0) return;
+
+  const effectiveMs = currentMs - userManualLyricOffsetMs;
 
   // Find active line index
   let newIndex = -1;
   for (let i = 0; i < currentLyricsLines.length; i++) {
     const item = currentLyricsLines[i];
-    if (typeof item.timeMs === 'number' && item.timeMs <= currentMs) {
+    if (typeof item.timeMs === 'number' && item.timeMs <= effectiveMs) {
       newIndex = i;
-    } else if (typeof item.timeMs === 'number' && item.timeMs > currentMs) {
+    } else if (typeof item.timeMs === 'number' && item.timeMs > effectiveMs) {
       break;
     }
   }
@@ -3334,6 +3363,7 @@ if (window.api && window.api.onPlaybackStopped) {
     currentTrackForLyrics = null;
     lastLoadedLyricsSong = '';
     nativeAudioAnchor = { timeSec: 0, updatedAt: 0 };
+    userManualLyricOffsetMs = 0;
     const lyricsContainer = document.getElementById('lyrics-lines');
     if (lyricsContainer) {
       lyricsContainer.innerHTML = '<div class="lyrics-placeholder">⏳ Loading next track...</div>';

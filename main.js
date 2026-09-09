@@ -1940,6 +1940,40 @@ async function fetchLyrics(trackInfo) {
       }
     }
 
+    // Helper: Select candidate whose duration and artist best match the track
+    function selectBestLyricCandidate(list, targetDurationSec, cleanArtistName) {
+      if (!Array.isArray(list) || list.length === 0) return null;
+      const syncedList = list.filter(item => Boolean(item.syncedLyrics));
+      const pool = syncedList.length > 0 ? syncedList : list.filter(item => Boolean(item.plainLyrics));
+      if (pool.length === 0) return list[0];
+
+      if (!targetDurationSec || targetDurationSec <= 0) {
+        return pool[0];
+      }
+
+      return pool.slice().sort((a, b) => {
+        const diffA = Math.abs((a.duration || 0) - targetDurationSec);
+        const diffB = Math.abs((b.duration || 0) - targetDurationSec);
+
+        const closeA = diffA <= 4;
+        const closeB = diffB <= 4;
+        if (closeA && !closeB) return -1;
+        if (closeB && !closeA) return 1;
+
+        if (cleanArtistName && cleanArtistName.toLowerCase() !== 'youtube') {
+          const art = cleanArtistName.toLowerCase();
+          const aArt = (a.artistName || '').toLowerCase();
+          const bArt = (b.artistName || '').toLowerCase();
+          const matchA = aArt && (art.includes(aArt) || aArt.includes(art));
+          const matchB = bArt && (art.includes(bArt) || bArt.includes(art));
+          if (matchA && !matchB) return -1;
+          if (matchB && !matchA) return 1;
+        }
+
+        return diffA - diffB;
+      })[0];
+    }
+
     // 3. Fallback to search query
     const searchQuery = `${cleanTitle} ${cleanArtist}`.trim()
     if (searchQuery) {
@@ -1948,9 +1982,11 @@ async function fetchLyrics(trackInfo) {
       if (resp.ok) {
         const list = await resp.json()
         if (Array.isArray(list) && list.length > 0) {
-          const best = list.find(item => item.syncedLyrics) || list[0]
-          lyricsCache.set(cacheKey, best)
-          return { success: true, data: best }
+          const best = selectBestLyricCandidate(list, duration, cleanArtist)
+          if (best && (best.syncedLyrics || best.plainLyrics)) {
+            lyricsCache.set(cacheKey, best)
+            return { success: true, data: best }
+          }
         }
       }
     }
@@ -1962,10 +1998,7 @@ async function fetchLyrics(trackInfo) {
       if (resp.ok) {
         const list = await resp.json()
         if (Array.isArray(list) && list.length > 0) {
-          const match = cleanArtist
-            ? list.find(item => item.artistName && cleanArtist.toLowerCase().includes(item.artistName.toLowerCase()) && item.syncedLyrics)
-            : null
-          const best = match || list.find(item => item.syncedLyrics) || list[0]
+          const best = selectBestLyricCandidate(list, duration, cleanArtist)
           if (best && (best.syncedLyrics || best.plainLyrics)) {
             lyricsCache.set(cacheKey, best)
             return { success: true, data: best }
