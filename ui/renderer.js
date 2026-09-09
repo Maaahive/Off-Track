@@ -1497,10 +1497,65 @@ function closeCoverPickerModal() {
 }
 
 function selectCustomCover(coverUrl) {
-  localStorage.setItem('userCustomCover', coverUrl);
+  try {
+    localStorage.setItem('userCustomCover', coverUrl);
+  } catch (err) {
+    console.warn('[Cover] Could not save custom cover to localStorage:', err);
+  }
   const img = document.getElementById('custom-gif-img');
   if (img) img.src = coverUrl;
+
+  const currentBg = localStorage.getItem('selectedBg');
+  if (currentBg === '__rotating_cover__') {
+    const bgLayer = document.getElementById('bg-layer');
+    if (bgLayer) bgLayer.style.backgroundImage = `url("${coverUrl}")`;
+  }
+
   closeCoverPickerModal();
+}
+
+function optimizeImageToDataUrl(dataUrlOrFile, callback) {
+  const processImg = (src) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        const maxDim = 600;
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          }
+        } else {
+          if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const result = canvas.toDataURL('image/jpeg', 0.88);
+        callback(result);
+      } catch (err) {
+        callback(src);
+      }
+    };
+    img.onerror = () => callback(src);
+    img.src = src;
+  };
+
+  if (typeof dataUrlOrFile === 'string') {
+    processImg(dataUrlOrFile);
+  } else if (dataUrlOrFile instanceof File || dataUrlOrFile instanceof Blob) {
+    const reader = new FileReader();
+    reader.onload = (e) => processImg(e.target.result);
+    reader.onerror = () => {};
+    reader.readAsDataURL(dataUrlOrFile);
+  }
 }
 
 function renderCoversGrid() {
@@ -1566,27 +1621,51 @@ if (btnAutoSongCover) {
   btnAutoSongCover.addEventListener('click', () => {
     localStorage.removeItem('userCustomCover');
     const img = document.getElementById('custom-gif-img');
-    if (img) img.src = currentPlayingArt || PRELOADED_COVERS[0].file;
+    const art = currentPlayingArt || PRELOADED_COVERS[0].file;
+    if (img) img.src = art;
+    const currentBg = localStorage.getItem('selectedBg');
+    if (currentBg === '__rotating_cover__') {
+      const bgLayer = document.getElementById('bg-layer');
+      if (bgLayer) bgLayer.style.backgroundImage = `url("${art}")`;
+    }
     closeCoverPickerModal();
   });
 }
 
-if (btnUploadCustomCover && coverFileUpload) {
-  btnUploadCustomCover.addEventListener('click', () => {
-    coverFileUpload.click();
+if (btnUploadCustomCover) {
+  btnUploadCustomCover.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    if (window.api && window.api.selectCoverFile) {
+      try {
+        const rawDataUrl = await window.api.selectCoverFile();
+        if (rawDataUrl) {
+          optimizeImageToDataUrl(rawDataUrl, (optUrl) => {
+            selectCustomCover(optUrl);
+            showToast('🎨 Custom Cover Applied!', 1500);
+          });
+          return;
+        }
+      } catch (err) {
+        console.warn('[Cover] Native file dialog error:', err);
+      }
+    }
+    if (coverFileUpload) {
+      coverFileUpload.value = '';
+      coverFileUpload.click();
+    }
   });
 }
 
 if (coverFileUpload) {
+  coverFileUpload.addEventListener('click', (e) => e.stopPropagation());
   coverFileUpload.addEventListener('change', (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files && e.target.files[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const dataUrl = event.target.result;
-        selectCustomCover(dataUrl);
-      };
-      reader.readAsDataURL(file);
+      optimizeImageToDataUrl(file, (optUrl) => {
+        selectCustomCover(optUrl);
+        showToast('🎨 Custom Cover Applied!', 1500);
+      });
+      coverFileUpload.value = '';
     }
   });
 }

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, screen, ipcMain, globalShortcut, shell, Tray, nativeImage, Menu } from 'electron'
+import { app, BrowserWindow, screen, ipcMain, globalShortcut, shell, Tray, nativeImage, Menu, dialog } from 'electron'
 import { spawn } from 'child_process'
 import path from 'path'
 import fs from 'fs'
@@ -2034,4 +2034,23 @@ async function fetchLyrics(trackInfo) {
 
 ipcMain.handle('get-lyrics', async (e, trackInfo) => {
   return await fetchLyrics(trackInfo)
+})
+
+ipcMain.handle('select-cover-file', async () => {
+  const win = BrowserWindow.getFocusedWindow() || mainWindow
+  const result = await dialog.showOpenDialog(win, {
+    title: 'Select Album Cover',
+    properties: ['openFile'],
+    filters: [
+      { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'] }
+    ]
+  })
+  if (!result.canceled && result.filePaths && result.filePaths.length > 0) {
+    const filePath = result.filePaths[0]
+    const ext = path.extname(filePath).toLowerCase().replace('.', '') || 'jpeg'
+    const mime = ext === 'png' ? 'image/png' : ext === 'gif' ? 'image/gif' : ext === 'webp' ? 'image/webp' : 'image/jpeg'
+    const data = fs.readFileSync(filePath)
+    return `data:${mime};base64,${data.toString('base64')}`
+  }
+  return null
 })

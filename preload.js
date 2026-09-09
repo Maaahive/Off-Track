@@ -177,4 +177,5 @@ contextBridge.exposeInMainWorld('api', {
   getLyrics: (trackInfo) => ipcRenderer.invoke('get-lyrics', trackInfo),
   saveBackground: (bgUrl) => ipcRenderer.invoke('save-background', bgUrl),
   getSavedBackground: () => ipcRenderer.invoke('get-saved-background'),
+  selectCoverFile: () => ipcRenderer.invoke('select-cover-file'),
 })
