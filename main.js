@@ -1017,10 +1017,19 @@ ipcMain.handle('get-playlists', async () => {
     const spotify = await safeGetSpotifyClient()
     if (!spotify) return { status: 'not_connected' }
     try {
-      const data = await spotify.getUserPlaylists({ limit: 50 })
+      let allItems = []
+      let offset = 0
+      const limit = 50
+      while (offset < 200) {
+        const data = await spotify.getUserPlaylists({ limit, offset })
+        const items = data.body.items || []
+        allItems = allItems.concat(items)
+        if (items.length < limit || !data.body.next) break
+        offset += limit
+      }
       const playlists = [
         { id: 'liked_songs', name: '❤️ Liked Songs' },
-        ...data.body.items.map(p => ({ id: p.id, name: p.name }))
+        ...allItems.map(p => ({ id: p.id, name: p.name }))
       ]
       const result = { status: 'success', playlists }
       playlistCache = result

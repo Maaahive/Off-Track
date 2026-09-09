@@ -251,6 +251,7 @@ safeOn('btn-playlist', 'click', async (e) => {
   
   const res = await window.api.getPlaylists()
   menu.innerHTML = ''
+  if (typeof syncSavedSpotifyPlaylists === 'function') syncSavedSpotifyPlaylists();
   
   const saved = JSON.parse(localStorage.getItem('savedPlaylists') || '[]');
   
@@ -468,6 +469,77 @@ safeOn('btn-playlist', 'click', async (e) => {
 
 // Sidebar Logic
 let currentPlaylistTracks = []
+let isRefreshingSavedPlaylist = false
+
+async function refreshSavedPlaylistInBackground(url, name) {
+  if (isRefreshingSavedPlaylist) return
+  isRefreshingSavedPlaylist = true
+  try {
+    const data = await window.api.fetchPlaylistUrl(url)
+    if (data && data.status === 'success' && Array.isArray(data.tracks) && data.tracks.length > 0) {
+      let saved = JSON.parse(localStorage.getItem('savedPlaylists') || '[]')
+      const idx = saved.findIndex(s => s.id === url)
+      if (idx !== -1) {
+        const oldTracks = saved[idx].tracks || []
+        const oldKeys = oldTracks.map(t => `${t.name}__${t.artist}`).join('|')
+        const newKeys = data.tracks.map(t => `${t.name}__${t.artist}`).join('|')
+        if (oldKeys !== newKeys) {
+          saved[idx].tracks = data.tracks
+          if (data.playlistName) saved[idx].name = data.playlistName
+          localStorage.setItem('savedPlaylists', JSON.stringify(saved))
+
+          const titleEl = document.getElementById('sidebar-title')
+          if (titleEl && titleEl.innerText === (name || saved[idx].name)) {
+            renderSidebarTracks(data.tracks)
+            showToast(`🔄 Updated Blend: ${saved[idx].name}`, 1500)
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[BlendSync] Quiet background refresh error:', err)
+  } finally {
+    isRefreshingSavedPlaylist = false
+  }
+}
+
+async function syncSavedSpotifyPlaylists() {
+  const saved = JSON.parse(localStorage.getItem('savedPlaylists') || '[]')
+  const spotifyPlaylists = saved.filter(s => 
+    typeof s.id === 'string' && 
+    (s.id.includes('spotify.com/playlist') || s.id.includes('spotify.com/blend') || s.id.includes('spotify.link') || s.id.includes('spoti.fi'))
+  )
+
+  if (spotifyPlaylists.length === 0) return
+
+  for (const pl of spotifyPlaylists) {
+    try {
+      const data = await window.api.fetchPlaylistUrl(pl.id)
+      if (data && data.status === 'success' && Array.isArray(data.tracks) && data.tracks.length > 0) {
+        let currentSaved = JSON.parse(localStorage.getItem('savedPlaylists') || '[]')
+        const idx = currentSaved.findIndex(s => s.id === pl.id)
+        if (idx !== -1) {
+          const oldTracks = currentSaved[idx].tracks || []
+          const oldKeys = oldTracks.map(t => `${t.name}__${t.artist}`).join('|')
+          const newKeys = data.tracks.map(t => `${t.name}__${t.artist}`).join('|')
+          if (oldKeys !== newKeys) {
+            currentSaved[idx].tracks = data.tracks
+            if (data.playlistName) currentSaved[idx].name = data.playlistName
+            localStorage.setItem('savedPlaylists', JSON.stringify(currentSaved))
+
+            const titleEl = document.getElementById('sidebar-title')
+            if (titleEl && titleEl.innerText === currentSaved[idx].name) {
+              renderSidebarTracks(data.tracks)
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[BlendSync] Error syncing saved playlist in background:', pl.name, e)
+    }
+  }
+}
+window.syncSavedSpotifyPlaylists = syncSavedSpotifyPlaylists
 
 async function openPlaylistSidebar(id, name, preloadedTracks = null) {
   const sidebar = document.getElementById('tracks-sidebar')
@@ -491,6 +563,9 @@ async function openPlaylistSidebar(id, name, preloadedTracks = null) {
   
   if (preloadedTracks) {
     renderSidebarTracks(preloadedTracks)
+    if (typeof id === 'string' && (id.includes('spotify.com/playlist') || id.includes('spotify.com/blend') || id.includes('spotify.link') || id.includes('spoti.fi'))) {
+      refreshSavedPlaylistInBackground(id, name)
+    }
     return
   }
   
@@ -1845,6 +1920,7 @@ if (btnSpotifySync) {
       if (res && res.success) {
         updateSpotifySyncUI(true);
         showToast('🟢 Synced with Spotify');
+        if (typeof syncSavedSpotifyPlaylists === 'function') syncSavedSpotifyPlaylists();
       } else {
         updateSpotifySyncUI(false);
         showToast(res?.message || '⚠️ Could not connect to Spotify.');
@@ -1873,6 +1949,7 @@ if (toggleSpotifySyncSetting) {
       if (res && res.success) {
         updateSpotifySyncUI(true);
         showToast('🟢 Synced with Spotify');
+        if (typeof syncSavedSpotifyPlaylists === 'function') syncSavedSpotifyPlaylists();
       } else {
         updateSpotifySyncUI(false);
         showToast(res?.message || '⚠️ Could not connect to Spotify.');
