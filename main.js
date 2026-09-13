@@ -45,8 +45,8 @@ function fixWindowsPath() {
     path.join(userProfile, 'AppData', 'Local', 'Programs', 'Python', 'Python313', 'Scripts'),
     path.join(userProfile, 'AppData', 'Local', 'Programs', 'Python', 'Python312', 'Scripts'),
     path.join(userProfile, 'scoop', 'shims'),
-    'C:\\ProgramData\\chocolatey\\bin',
     path.join(__dirname, 'vendor', 'win'),
+    path.join(process.resourcesPath || '', 'vendor', 'win'),
   ]
   for (const p of extraPaths) {
     if (fs.existsSync(p) && !process.env.PATH.includes(p)) {

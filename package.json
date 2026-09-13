@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node scripts/start.js",
     "dev": "node scripts/start.js",
-    "postinstall": "node scripts/ensure-ytdlp.js"
+    "postinstall": "node scripts/ensure-ytdlp.js",
+    "dist": "electron-builder"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
@@ -22,6 +23,56 @@
     "yt-dlp-wrap": "^2.3.12"
   },
   "devDependencies": {
-    "electron": "^33.4.11"
+    "electron": "^33.4.11",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.mahi.offtrack",
+    "productName": "OffTrack",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "ui/**/*",
+      "assets/**/*",
+      "scripts/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "vendor",
+        "to": "vendor",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "OffTrack"
+    }
   }
 }
